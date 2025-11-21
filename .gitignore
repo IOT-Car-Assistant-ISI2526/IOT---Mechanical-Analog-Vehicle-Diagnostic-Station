@@ -2,6 +2,7 @@ build/
 sdkconfig
 sdkconfig.old
 components/
+managed_components/
 .vscode/
 .devcontainer/
 IOT---Mechanical-Analog-Vehicle-Diagnostic-Station.code-workspace

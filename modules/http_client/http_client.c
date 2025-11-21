@@ -34,7 +34,7 @@ static void http_get_task(void* arg)
     struct addrinfo *res;
     struct in_addr *addr;
     int s, r;
-    char recv_buf[256];
+    char recv_buf[256]; // bufor odbiorczy
 
     while(1) {
         // uzywamy funkcji publicznej z modulu wifi_station,
@@ -106,8 +106,8 @@ static void http_get_task(void* arg)
         bool headers_done = false;
 
         do {
-            bzero(recv_buf, sizeof(recv_buf));
-            r = recv(s, recv_buf, sizeof(recv_buf)-1, 0);
+            bzero(recv_buf, sizeof(recv_buf)); // czyszczenie bufora
+            r = recv(s, recv_buf, sizeof(recv_buf)-1, 0); // odbieranie danych
             
             if (r > 0) {
                 // szukamy konca naglowkww HTTP
@@ -115,7 +115,7 @@ static void http_get_task(void* arg)
                     char* end_of_headers = strstr(recv_buf, "\r\n\r\n");
                     if (end_of_headers != NULL) {
                         headers_done = true;
-                        printf("%s", end_of_headers + 4);
+                        printf("%s", end_of_headers + 4); //end_of_headers + 4 to poczatek tresci po naglowkach (body)
                     }
                 } else {
                     printf("%.*s", r, recv_buf);

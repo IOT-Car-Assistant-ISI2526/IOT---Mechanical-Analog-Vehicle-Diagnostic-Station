@@ -1,2 +1,15 @@
-idf_component_register(SRCS "status_led.c" "wifi_station.c" "http_client.c" "main.c"
-                    INCLUDE_DIRS ".")
+﻿idf_component_register(
+    SRCS
+        main.c
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        wifi_station
+        http_client
+        mqtt_client
+        sensors
+        storage
+        ble_service
+        status_led
+    PRIV_REQUIRES nvs_flash wifi_station status_led http_client freertos log
+)
