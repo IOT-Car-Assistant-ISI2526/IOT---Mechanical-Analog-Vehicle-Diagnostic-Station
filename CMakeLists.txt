@@ -8,4 +8,4 @@ set(EXTRA_COMPONENT_DIRS modules)
 include_directories("include")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(wifi-connection)
+project(Iot_project)
