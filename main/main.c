@@ -71,42 +71,52 @@ void app_main(void) {
         vTaskDelay(10 / portTICK_PERIOD_MS); 
     }
 
-    printf("\n\n===================================\n");
-    printf(" SYSTEM GOTOWY (Modularny)\n");
-    printf(" 1. [tekst] -> Zapisz\n");
-    printf(" 2. 'read'  -> Odczytaj\n");
-    printf(" 3. 'free'  -> Info o pamięci\n");
-    printf(" 4. 'clear' -> Wyczyść\n");
-    printf("===================================\n");
 
-    char input_line[128];
+  ESP_ERROR_CHECK(ret);
+  ESP_LOGI(TAG, "Start aplikacji...");
 
-    while (1) {
-        get_line_from_console(input_line, sizeof(input_line));
+    //----Test HC-SR04----
+  // hcsr04_regular_measurments();
+  //--------------------
+  xTaskCreate(bmp280_task, "BMP280_Task", 4096, NULL, 10, NULL);
 
-        if (strcmp(input_line, "read") == 0) {
-            // Używamy funkcji z modułu
-            char* content = storage_read_all();
-            if (content) {
-                printf("\n--- NOTATKI ---\n%s\n---------------\n", content);
-                free(content);
-            } else {
-                printf(">> Pusto.\n");
-            }
-        } 
-        else if (strcmp(input_line, "free") == 0) {
-            printf(">> Wolne: %zu bajtów\n", storage_get_free_space());
-        }
-        else if (strcmp(input_line, "clear") == 0) {
-            storage_clear_all();
-            printf(">> Wyczyszczono.\n");
-        } 
-        else {
-            if (storage_write_line(input_line)) {
-                printf(">> Zapisano.\n");
-            } else {
-                printf(">> Błąd zapisu/brak miejsca!\n");
-            }
-        }
-    }
+  // status_led_start_task(); // watek obslugujacy diode LED
+  // wifi_station_init();     // watek obslugujacy wi-fi
+
+  // ESP_LOGI(TAG, "Pierwsze połączenie Wi-Fi nawiązane. Uruchamiam klienta HTTP...");
+
+  // http_client_start_task(); // watek klienta HTTP
+
+    
+
+    // char input_line[128];
+
+    // while (1) {
+    //     get_line_from_console(input_line, sizeof(input_line));
+
+    //     if (strcmp(input_line, "read") == 0) {
+    //         // Używamy funkcji z modułu
+    //         char* content = storage_read_all();
+    //         if (content) {
+    //             printf("\n--- NOTATKI ---\n%s\n---------------\n", content);
+    //             free(content);
+    //         } else {
+    //             printf(">> Pusto.\n");
+    //         }
+    //     } 
+    //     else if (strcmp(input_line, "free") == 0) {
+    //         printf(">> Wolne: %zu bajtów\n", storage_get_free_space());
+    //     }
+    //     else if (strcmp(input_line, "clear") == 0) {
+    //         storage_clear_all();
+    //         printf(">> Wyczyszczono.\n");
+    //     } 
+    //     else {
+    //         if (storage_write_line(input_line)) {
+    //             printf(">> Zapisano.\n");
+    //         } else {
+    //             printf(">> Błąd zapisu/brak miejsca!\n");
+    //         }
+    //     }
+    // }
 }
