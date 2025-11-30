@@ -146,15 +146,14 @@ void veml7700_task(void *arg)
         if (veml7700_read_lux(&lux) == ESP_OK)
         {
             ESP_LOGI(TAG, "Light Level: %.2f Lux", lux);
+            // TODO: save the light measurement
+            vTaskDelay(pdMS_TO_TICKS(3600000));
         }
         else
         {
             ESP_LOGE(TAG, "Failed to read sensor");
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
-
-        // Wait 1 hour
-        // vTaskDelay(pdMS_TO_TICKS(3600000));
-        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 

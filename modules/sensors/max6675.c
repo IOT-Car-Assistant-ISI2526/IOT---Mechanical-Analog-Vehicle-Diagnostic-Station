@@ -85,13 +85,14 @@ void max6675_task(void *arg)
         if (temp < 0)
         {
             ESP_LOGE(TAG, "Error: Thermocouple open or disconnected");
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
         else
         {
             ESP_LOGI(TAG, "Temperature: %.2f C", temp);
+            // TODO: save the temaperature measurement
+            vTaskDelay(pdMS_TO_TICKS(3600000));
         }
-
-        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
