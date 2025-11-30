@@ -32,6 +32,7 @@ extern "C"
     void bmp280_task(void *arg);
 
     void bmp280_start_task(void);
+    void bmp280_single_measurement(float *temperature, float *pressure);
 
 #ifdef __cplusplus
 }

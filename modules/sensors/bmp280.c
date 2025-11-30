@@ -9,7 +9,7 @@ static const char *TAG = "BMP280";
 /* Configuration */
 #define I2C_MASTER_NUM I2C_NUM_0
 #define I2C_MASTER_FREQ_HZ 100000
-#define BMP280_ADDR 0x77 // Change to 0x77 if 0x76 doesn't work!
+#define BMP280_ADDR 0x76 // Change to 0x77 if 0x76 doesn't work!
 
 /* Registers */
 #define REG_DIG_T1 0x88
@@ -156,6 +156,35 @@ void bmp280_task(void *arg)
         }
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
+}
+
+
+
+void bmp280_single_measurement(float *temperature, float *pressure)
+{
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    if (bmp280_setup(21, 22) == ESP_OK)
+    {
+        printf("BMP280 init success!\n");
+    }
+    else
+    {
+        printf("BMP280 init failed. Check wiring or I2C address.\n");
+    }
+
+    
+ 
+
+        if (take_measurement(temperature, pressure) == ESP_OK)
+        {
+            ESP_LOGI(TAG, "Temp: %.2f C | Pres: %.2f Pa", temperature, pressure);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Measurement failed");
+        }
+    
 }
 
 void bmp280_start_task()

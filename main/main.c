@@ -33,6 +33,7 @@
 // MOSI is not needed for MAX6675, but SPI driver might need a pin number or -1
 #define PIN_MOSI -1
 
+// stałe do zastąpienia funkcjami i zmiennymi
 #define BLE_PAIRED_SUCCESS true
 #define MEMORY_USAGE_PERCENT 75
 #define WIFI_STATION_CHECK_CREDETIALS true
@@ -115,16 +116,16 @@ void app_main(void)
   //----Test HC-SR04----
   // hcsr04_start_task();
   //--------------------
+  float temperature = 0.0f, pressure = 0.0f;
 
   init_i2c_global();
   init_spi_global();
   vTaskDelay(pdMS_TO_TICKS(500));
 
-  bmp280_start_task();
-  veml7700_start_task();
-  max6675_start_task();
-  adxl345_start_task();
-  // stałe do zastąpienia funkcjami i zmiennymi
+  // bmp280_start_task();
+  // veml7700_start_task();
+  // max6675_start_task();
+  // adxl345_start_task();
 
   // 1. Inicjalizacja NVS (Systemowa)
   esp_err_t ret = nvs_flash_init();
@@ -149,7 +150,7 @@ void app_main(void)
   ESP_LOGI(TAG, "Start aplikacji...");
 
   //----Test HC-SR04----
-  // hcsr04_regular_measurments();
+  // hcsr04_regular_measurements();
   //--------------------
   // xTaskCreate(bmp280_task, "BMP280_Task", 4096, NULL, 10, NULL);
 
@@ -188,6 +189,28 @@ void app_main(void)
     {
       storage_clear_all();
       printf(">> Wyczyszczono.\n");
+    }
+    else if (strcmp(input_line, "measurement") == 0)
+    {
+
+      bool valid = true;
+
+      bmp280_single_measurement(&temperature, &pressure);
+
+      if (valid)
+      {
+        char line[128];
+        snprintf(line, sizeof(line), "Ostatni pomiar: %.2f C | %.2f Pa", temperature, pressure);
+        printf("Ostatni pomiar: %.2f C | %.2f Pa\n", temperature, pressure);
+        if (storage_write_line(line))
+        {
+          printf(">> Zapisano.\n");
+        }
+      }
+      else
+      {
+        printf("Brak poprawnego pomiaru (czujnik jeszcze nie wykonał odczytu)\n");
+      }
     }
     else
     {
