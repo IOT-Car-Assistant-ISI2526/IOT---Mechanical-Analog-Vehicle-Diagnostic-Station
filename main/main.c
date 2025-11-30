@@ -8,14 +8,21 @@
 
 #include "hcsr04.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "bmp280.h"
+
 // tag do logowania w konsoli
 static const char *TAG = "app_main";
 
 void app_main(void)
 {
   //----Test HC-SR04----
-  //hcsr04_regular_measurments();
+  // hcsr04_regular_measurments();
   //--------------------
+
+  // bmp280_task(NULL);
+  xTaskCreate(bmp280_task, "BMP280_Task", 4096, NULL, 10, NULL);
 
   esp_err_t ret = nvs_flash_init(); // inicjalizacja NVS
   // sprawdzanie czy NVS jest pelny lub ma niekompatybilna wersje
