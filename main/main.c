@@ -134,11 +134,6 @@ void get_line_from_console(char *buffer, size_t max_len)
 
 void app_main(void)
 {
-  //----Test HC-SR04----
-  // hcsr04_start_task();
-  //--------------------
-  float temperature = 0.0f, pressure = 0.0f;
-
   init_i2c_global();
   init_spi_global();
   vTaskDelay(pdMS_TO_TICKS(500));
@@ -152,7 +147,7 @@ void app_main(void)
   bmp280_start_task(&bmp280_parameter);
   veml7700_start_task(&veml7700_parameters);
   max6675_start_task(&max6675_parameters);
-  adxl345_start_task();
+  adxl345_start_task(&adxl345_parameters);
   hcsr04_start_task(&hcsr04_parameters);
 
   // 1. Inicjalizacja NVS (Systemowa)
@@ -176,19 +171,6 @@ void app_main(void)
 
   ESP_ERROR_CHECK(ret);
   ESP_LOGI(TAG, "Start aplikacji...");
-
-  //----Test HC-SR04----
-  // hcsr04_regular_measurements();
-  //--------------------
-  // xTaskCreate(bmp280_task, "BMP280_Task", 4096, NULL, 10, NULL);
-
-  // status_led_start_task(); // watek obslugujacy diode LED
-  // wifi_station_init();     // watek obslugujacy wi-fi
-
-  // ESP_LOGI(TAG, "Pierwsze połączenie Wi-Fi nawiązane. Uruchamiam klienta HTTP...");
-
-  // http_client_start_task(); // watek klienta HTTP
-
   char input_line[128];
 
   while (1)
@@ -223,15 +205,13 @@ void app_main(void)
 
       bool valid = true;
 
-      // bmp280_single_measurement(&temperature, &pressure);
-
       if (valid)
       {
         char line[128];
-        snprintf(line, sizeof(line), "BMP280 Ostatni pomiar: %.2f C\nVEML7700 Ostatni pomiar: %.2f Lux\nMAX6675 Ostatni pomiar: %.2f C\nHC-SR04 Ostatni pomiar: %.2f cm\n",
-                 bmp280_parameter, veml7700_parameters, max6675_parameters, hcsr04_parameters);
-        printf("BMP280 Ostatni pomiar: %.2f C \n\nVEML7700 Ostatni pomiar: %.2f Lux\nMAX6675 Ostatni pomiar: %.2f C\nHC-SR04 Ostatni pomiar: %.2f cm\n",
-               bmp280_parameter, veml7700_parameters, max6675_parameters, hcsr04_parameters);
+        snprintf(line, sizeof(line), "BMP280 LM: %.2f C\nVEML7700 LM: %.2f Lux\nMAX6675 LM: %.2f C\nHC-SR04 LM: %.2f cm\nADXL345 LM: %.2f m/s2\n",
+                 bmp280_parameter, veml7700_parameters, max6675_parameters, hcsr04_parameters, adxl345_parameters);
+        printf("BMP280 LM: %.2f C \n\nVEML7700 LM: %.2f Lux\nMAX6675 LM: %.2f C\nHC-SR04 LM: %.2f cm\nADXL345 LM: %.2f m/s2\n",
+               bmp280_parameter, veml7700_parameters, max6675_parameters, hcsr04_parameters, adxl345_parameters);
         if (storage_write_line(line))
         {
           printf(">> Zapisano.\n");

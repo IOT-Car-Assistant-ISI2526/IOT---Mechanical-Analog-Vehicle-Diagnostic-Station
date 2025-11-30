@@ -25,10 +25,10 @@ esp_err_t adxl345_init(void);
  * @brief Read X, Y, Z data from the sensor
  * @param data Pointer to the structure to store the results
  */
-esp_err_t adxl345_read_data(adxl345_data_t *data);
+esp_err_t adxl345_read_data(float *x, float *y, float *z);
 
 void adxl345_task(void *arg);
 
-void adxl345_start_task(void);
+void adxl345_start_task(double *parameter);
 
 #endif // ADXL345_H

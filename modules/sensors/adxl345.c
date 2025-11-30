@@ -1,6 +1,7 @@
 #include "adxl345.h"
 #include "driver/i2c.h"
 #include "esp_log.h"
+#include <math.h>
 
 // I2C Configuration
 #define I2C_MASTER_NUM I2C_NUM_0
@@ -13,7 +14,10 @@
 #define REG_DATA_FORMAT 0x31 // Data Format Register
 #define REG_DATAX0 0x32      // Start of Data Registers (X-Low)
 
-#define ADXL345_LSB_TO_MS2 (0.004f * 9.80665f) // Conversion factor from LSB to m/s² (assuming ±2g range)
+#define ADXL345_LSB_TO_MS2 (0.004f * 9.80665f)
+#define ADXL345_X_AXIS_CORRECTION -0.037f
+#define ADXL345_Y_AXIS_CORRECTION -2.205f
+#define ADXL345_EARTH_GRAVITY_MS2 8.318f
 static const char *TAG = "ADXL345";
 
 esp_err_t adxl345_init(void)
@@ -36,58 +40,53 @@ esp_err_t adxl345_init(void)
     return err;
 }
 
-esp_err_t adxl345_read_data(adxl345_data_t *data)
+esp_err_t adxl345_read_data(float *x, float *y, float *z)
 {
-    uint8_t raw_data[6]; // Buffer for X0, X1, Y0, Y1, Z0, Z1
-    uint8_t reg_addr = REG_DATAX0;
+    uint8_t reg = REG_DATAX0;
+    uint8_t raw[6];
 
-    // Read 6 bytes of data starting from REG_DATAX0
     esp_err_t err = i2c_master_write_read_device(
-        I2C_MASTER_NUM,
-        ADXL345_ADDR,
-        &reg_addr,
-        1,
-        raw_data,
-        6,
-        1000 / portTICK_PERIOD_MS);
+        I2C_MASTER_NUM, ADXL345_ADDR,
+        &reg, 1, raw, 6,
+        100 / portTICK_PERIOD_MS);
 
-    if (err == ESP_OK)
-    {
-        // Combine low and high bytes into 16-bit signed integers
-        // ADXL345 sends Least Significant Byte first
-        int16_t raw_x = (int16_t)((raw_data[1] << 8) | raw_data[0]);
-        int16_t raw_y = (int16_t)((raw_data[3] << 8) | raw_data[2]);
-        int16_t raw_z = (int16_t)((raw_data[5] << 8) | raw_data[4]);
-        data->x = raw_x * ADXL345_LSB_TO_MS2;
-        data->y = raw_y * ADXL345_LSB_TO_MS2;
-        data->z = raw_z * ADXL345_LSB_TO_MS2;
-    }
-    else
-    {
-        ESP_LOGE(TAG, "Failed to read data");
-    }
+    if (err != ESP_OK) return err;
 
-    return err;
+    int16_t rx = (int16_t)(raw[1] << 8 | raw[0]);
+    int16_t ry = (int16_t)(raw[3] << 8 | raw[2]);
+    int16_t rz = (int16_t)(raw[5] << 8 | raw[4]);
+
+    *x = rx * ADXL345_LSB_TO_MS2;
+    *y = ry * ADXL345_LSB_TO_MS2;
+    *z = rz * ADXL345_LSB_TO_MS2;
+
+    return ESP_OK;
 }
+
 
 void adxl345_task(void *arg)
 {
     float combined_acceleration = 0.0f;
+    float x, y, z;
     if (adxl345_init() != ESP_OK)
     {
         ESP_LOGE(TAG, "Sensor init failed! Restarting...");
     }
 
-    adxl345_data_t acc_data;
 
     while (1)
     {
         // Read data from sensor
-        if (adxl345_read_data(&acc_data) == ESP_OK)
+        if (adxl345_read_data(&x, &y, &z) == ESP_OK)
         {
+            x = x - ADXL345_X_AXIS_CORRECTION;
+            y = y - ADXL345_Y_AXIS_CORRECTION;
+            z = z - ADXL345_EARTH_GRAVITY_MS2;
+            combined_acceleration = sqrtf(x*x + y*y + z*z);
             // Display data on Monitor
             // Note: These are raw values. For G-force, multiply by 0.0039 (approx 4mg/LSB)
-            // ESP_LOGI(TAG, "X: %d | Y: %d | Z: %d", acc_data.x, acc_data.y, acc_data.z);
+            // ESP_LOGI(TAG, "X=%.3f m/s²  Y=%.3f m/s²  Z=%.3f m/s², ALL=%.3f m/s²", x, y, z, combined_acceleration);
+            *(double *)arg = combined_acceleration;
         }
 
         // Wait for 500ms before next read
@@ -95,7 +94,7 @@ void adxl345_task(void *arg)
     }
 }
 
-void adxl345_start_task()
+void adxl345_start_task(double*parameter)
 {
-    xTaskCreate(adxl345_task, "ADXL345_Task", 4096, NULL, 10, NULL);
+    xTaskCreate(adxl345_task, "ADXL345_Task", 4096, parameter, 10, NULL);
 }
