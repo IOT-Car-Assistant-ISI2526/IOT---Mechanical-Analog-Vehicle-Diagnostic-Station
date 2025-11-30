@@ -11,5 +11,13 @@
         storage
         ble_service
         status_led
-    PRIV_REQUIRES nvs_flash wifi_station status_led http_client freertos log
+    PRIV_REQUIRES
+        nvs_flash
+        wifi_station
+        status_led
+        http_client
+        freertos
+        log
+        spiffs
+        storage_manager
 )
