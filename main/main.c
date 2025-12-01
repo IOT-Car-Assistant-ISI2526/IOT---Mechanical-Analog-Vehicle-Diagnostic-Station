@@ -16,13 +16,15 @@
 #include "max6675.h"
 #include "adxl345.h"
 #include "storage_manager.h"
-
+#include "ble_server.h"      // Bluetooth (Konfiguracja)
+#include "wifi_station.h"    // WiFi (Łączenie)
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 #include "driver/i2c.h"        // Required for i2c_config_t, I2C_MODE_MASTER, i2c_driver_install
 #include "driver/gpio.h"       // Required for GPIO_PULLUP_ENABLE
 #include "driver/spi_master.h" // <--- Add this include at the top
+
 
 // i2c bmp280 + adxl345
 #define I2C_MASTER_NUM I2C_NUM_0
