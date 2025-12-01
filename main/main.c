@@ -9,17 +9,14 @@
 #include "freertos/task.h"
 #include <stdio.h>
 #include <string.h>
+#include "storage_manager.h"
+#include "ble_server.h"      // Bluetooth (Konfiguracja)
 
 #include "hcsr04.h"
 #include "bmp280.h"
 #include "veml7700.h"
 #include "max6675.h"
 #include "adxl345.h"
-#include "storage_manager.h"
-#include "ble_server.h"      // Bluetooth (Konfiguracja)
-#include "wifi_station.h"    // WiFi (Łączenie)
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
 #include "driver/i2c.h"        // Required for i2c_config_t, I2C_MODE_MASTER, i2c_driver_install
 #include "driver/gpio.h"       // Required for GPIO_PULLUP_ENABLE
