@@ -40,6 +40,14 @@
 #define INCORRECT_MEASUREMENT_INTERVAL_MS 2000
 
 #define MAX6675_PROFILE_SAMPLES_COUNT 100
+
+// Experiment: save-first-N samples to persistent storage (drop-new policy)
+#define ADXL_SAVE_LIMIT 20
+#define MAX6675_SAVE_LIMIT 20
+
+// MQTT broker used for flushing stored samples (change as needed)
+#define MQTT_BROKER_URI "mqtt://10.219.44.41:1883"
+
 #define HCSR04_TRIGGER_COUNT 3 
 
 

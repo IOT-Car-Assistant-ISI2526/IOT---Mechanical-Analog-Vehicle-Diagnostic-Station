@@ -4,7 +4,6 @@
     INCLUDE_DIRS
         "."
     REQUIRES
-        mqtt_client
         sensors
         storage
         buzzer
@@ -19,4 +18,5 @@
         storage_manager
         ble_service
         button
+        mqtt_client
 )

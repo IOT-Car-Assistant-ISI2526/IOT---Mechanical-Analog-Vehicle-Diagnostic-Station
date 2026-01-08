@@ -3,6 +3,8 @@
 #include "max6675.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "storage_manager.h"
 #include <string.h>
 #include <freertos/semphr.h>
 
@@ -97,6 +99,23 @@ void max6675_task(void *arg)
         else
         {
             *(float *)arg = temp;
+
+
+            static int max_saved_count = 0;
+            if (max_saved_count < MAX6675_SAVE_LIMIT) {
+                char line[80];
+                int64_t ts = esp_timer_get_time();
+                int r = snprintf(line, sizeof(line), "MAX_NORMAL;%lld;%.2f", (long long)ts, temp);
+                if (r > 0) {
+                    if (storage_write_line(line)) {
+                        max_saved_count++;
+                        ESP_LOGI(TAG, "Saved MAX6675 normal sample %d/%d", max_saved_count, MAX6675_SAVE_LIMIT);
+                    } else {
+                        ESP_LOGW(TAG, "Failed to save MAX6675 normal sample (no space)");
+                    }
+                }
+            }
+
             vTaskDelay(pdMS_TO_TICKS(MAX6675_MEASUREMENT_INTERVAL_MS));
         }
     }
@@ -137,6 +156,15 @@ void max6675_profile_task(void *arg)
 
         results[measurement_idx].temperature = temp;
         results[measurement_idx].seconds = elapsed_ms / 1000;
+
+        char line[80];
+        int64_t ts = esp_timer_get_time();
+        int r = snprintf(line, sizeof(line), "MAX_PROFILE;%lld;%.2f;idx=%d;sec=%lu", (long long)ts, temp, measurement_idx, results[measurement_idx].seconds);
+        if (r > 0) {
+            if (!storage_write_line(line)) {
+                ESP_LOGW(TAG, "Failed to save MAX6675 profile sample (no space)");
+            }
+        }
 
         measurement_idx++;
 

@@ -2,7 +2,9 @@
 #include <stdint.h>
 #include "esp_gatts_api.h"
 
-#define TAG "BLE_SERVER"
+
+static const char *TAG = "BLE_SERVER";
+// #define TAG "BLE_SERVER"
 #define DEVICE_NAME "ESP32-NotesWiFi"
 
 // --- UUID Definicje ---

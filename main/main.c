@@ -26,6 +26,7 @@
 #include "wifi_station.h"
 #include "status_led.h"
 #include "http_client.h"
+#include "mqtt_client_app.h"
 
 #include "buzzer.h"
 
@@ -159,23 +160,26 @@ void get_line_from_console(char *buffer, size_t max_len)
 
 void app_main(void)
 {
-  //init_i2c();
+  init_i2c();
   init_spi();
   init_nvs();
 
   storage_init();
   vTaskDelay(pdMS_TO_TICKS(STARTUP_DELAY_MS));
 
-  //float bmp280_temp = 0.0f, veml7700_illuminance = 0.0f, max6675_engine_temp = 0.0f, adxl345_acceleration = 0.0f, hcsr04_distance = 0.0f;
+  float bmp280_temp = 0.0f, veml7700_illuminance = 0.0f, max6675_engine_temp = 0.0f, adxl345_acceleration = 0.0f, hcsr04_distance = 0.0f;
 
-  //bmp280_start_task(&bmp280_temp);
-  //veml7700_start_task(&veml7700_illuminance);
-  //max6675_start_task(&max6675_engine_temp);
-  //adxl345_start_task(&adxl345_acceleration);
-  //hcsr04_start_task(&hcsr04_distance);
+  bmp280_start_task(&bmp280_temp);
+  // veml7700_start_task(&veml7700_illuminance);
+  max6675_start_task(&max6675_engine_temp);
+  adxl345_start_task(&adxl345_acceleration);
+  hcsr04_start_task(&hcsr04_distance);
+
+
+  mqtt_client_start();
   
-  //buzzer_init(GPIO_NUM_18); 
-  //buzzer_beep(500);
+  buzzer_init(GPIO_NUM_18); 
+  buzzer_beep(500);
   button_init();
 
   int c;
@@ -214,23 +218,23 @@ void app_main(void)
       storage_clear_all();
       printf(">> Wyczyszczono.\n");
     }
-    //else if (strcmp(input_line, "measurement") == 0)
-    //{
-//
-    //  bool valid = true;
-//
-  //
-    //    char line[128];
-    //    snprintf(line, sizeof(line), "BMP280 LM: %.2f C\nVEML7700 LM: %.2f Lux\nMAX6675 LM: %.2f C\nHC-SR04 LM: %.2f cm\nADXL345 LM: %.2f m/s2\n",
-    //             bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
-    //    printf("BMP280 LM: %.2f C \nVEML7700 LM: %.2f Lux\nMAX6675 LM: %.2f C\nHC-SR04 LM: %.2f cm\nADXL345 LM: %.2f m/s2\n",
-    //           bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
-    //    if (storage_write_line(line))
-    //    {
-    //      printf(">> Zapisano.\n");
-    //    }
-//
-    //}
+    else if (strcmp(input_line, "measurement") == 0)
+    {
+
+     bool valid = true;
+
+  
+       char line[128];
+       snprintf(line, sizeof(line), "BMP280 LM: %.2f C\nVEML7700 LM: %.2f Lux\nMAX6675 LM: %.2f C\nHC-SR04 LM: %.2f cm\nADXL345 LM: %.2f m/s2\n",
+                bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
+       printf("BMP280 LM: %.2f C \nVEML7700 LM: %.2f Lux\nMAX6675 LM: %.2f C\nHC-SR04 LM: %.2f cm\nADXL345 LM: %.2f m/s2\n",
+              bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
+       if (storage_write_line(line))
+       {
+         printf(">> Zapisano.\n");
+       }
+
+    }
     else
     {
       if (storage_write_line(input_line))

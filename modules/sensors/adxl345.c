@@ -1,7 +1,10 @@
 #include "adxl345.h"
 #include "driver/i2c.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "storage_manager.h"
 #include <math.h>
+#include "project_config.h"
 
 // I2C Configuration
 #define I2C_MASTER_NUM I2C_NUM_0
@@ -74,6 +77,8 @@ void adxl345_task(void *arg)
     }
 
 
+    static int adxl_saved_count = 0;
+
     while (1)
     {
         // Read data from sensor
@@ -83,8 +88,22 @@ void adxl345_task(void *arg)
             y = y - ADXL345_Y_AXIS_CORRECTION;
             z = z - ADXL345_EARTH_GRAVITY_MS2;
             combined_acceleration = sqrtf(x*x + y*y + z*z);
-          
+
             *(float *)arg = combined_acceleration;
+
+            if (adxl_saved_count < ADXL_SAVE_LIMIT) {
+                char line[80];
+                int64_t ts = esp_timer_get_time(); // microseconds
+                int r = snprintf(line, sizeof(line), "ADXL;%lld;%.3f", (long long)ts, combined_acceleration);
+                if (r > 0) {
+                    if (storage_write_line(line)) {
+                        adxl_saved_count++;
+                        ESP_LOGI(TAG, "Saved ADXL sample %d/%d", adxl_saved_count, ADXL_SAVE_LIMIT);
+                    } else {
+                        ESP_LOGW(TAG, "Failed to save ADXL sample (no space)");
+                    }
+                }
+            }
         }
 
         // Wait for 500ms before next read
