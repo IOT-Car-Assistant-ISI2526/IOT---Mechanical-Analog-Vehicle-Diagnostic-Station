@@ -8,17 +8,17 @@ void adxl345_task(void *arg)
         if (acceleration != -1.0f)
         {
             *(float *)arg = acceleration;
-            vTaskDelay(1000);
+            vTaskDelay(FREQUENT_MEASUREMENT_INTERVAL_MS);
         }
         else
         {
             printf("Failed to read ADXL345 data");
-            vTaskDelay(1000);
+            vTaskDelay(SENSOR_MEASUREMENT_FAIL_INTERVAL_MS);
         }
     }
 }
 
 void adxl345_start_task(float *parameter)
 {
-    xTaskCreate(adxl345_task, "adxl345_task", 2048, parameter, 5, NULL);
+    xTaskCreate(adxl345_task, "adxl345_task", 4096, parameter, 5, NULL);
 }

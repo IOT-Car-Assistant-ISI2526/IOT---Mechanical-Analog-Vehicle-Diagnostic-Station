@@ -1,4 +1,7 @@
-#include "driver/i2c_master.h"
+#include "max6675.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "project_config.h"
 
 void max6675_task(void *arg);
 

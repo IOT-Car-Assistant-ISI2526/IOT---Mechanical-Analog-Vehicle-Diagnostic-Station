@@ -5,7 +5,7 @@
 
 #define BMP280_PORT I2C_NUM_0  /*!< I2C port number for BMP280 sensor */
 #define BMP280_SPEED_HZ 100000 /*!< I2C clock line frequency for BMP280 sensor */
-#define BMP280_ADDR 0x76       /*!< Address of the BMP280 sensor */
+#define BMP280_ADDR 0x77       /*!< Address of the BMP280 sensor */
 #define BMP280_TEMP_MSB 0xFA   /*!< Address of the most significant bit temperature register */
 #define BMP280_PRES_MSB 0xF7   /*!< Address of the most significant bit pressure register */
 #define REG_CONFIG 0xF5        /*!< Address of the configuration register */

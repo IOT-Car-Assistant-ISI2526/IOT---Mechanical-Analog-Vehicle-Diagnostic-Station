@@ -14,7 +14,7 @@
  * @param out_handle Pointer to store the resulting device handle
  * @return esp_err_t ESP_OK on success
  */
-esp_err_t max6675_init(spi_device_handle_t *out_handle);
+esp_err_t max6675_init();
 
 /**
  * @brief Delete the MAX6675 sensor device
@@ -22,8 +22,7 @@ esp_err_t max6675_init(spi_device_handle_t *out_handle);
  * @param handle Device handle
  * @return esp_err_t ESP_OK on success
  */
-esp_err_t max6675_delete(spi_device_handle_t handle);
-
+esp_err_t max6675_delete();
 /**
  * @brief Check if thermocouple is open.
  * The third least-significant bit (bit 2) indicates an open thermocouple.
@@ -56,4 +55,4 @@ static float convert_raw_data(uint16_t value);
  * @param handle Device handle
  * @return float Temperature in Celsius, or -1.0 if reading failed/thermocouple open
  */
-float max6675_read_celsius(spi_device_handle_t handle);
+float max6675_read_celsius();

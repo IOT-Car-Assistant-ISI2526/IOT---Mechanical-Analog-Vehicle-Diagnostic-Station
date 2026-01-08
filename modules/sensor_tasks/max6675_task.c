@@ -1,20 +1,19 @@
-#include "max6675.h"
+#include "max6675_task.h"
 
 void max6675_task(void *arg)
 {
-    spi_device_handle_t dev_handle = *((spi_device_handle_t *)arg);
     while (1)
     {
-        float engine_temp = max6675_read_celsius(dev_handle);
+        float engine_temp = max6675_read_celsius();
         if (engine_temp != -1.0f)
         {
             *(float *)arg = engine_temp;
-            vTaskDelay(2000 / portTICK_PERIOD_MS);
+            vTaskDelay(MAX6675_MEASUREMENT_INTERVAL_MS); // 5 minutes
         }
         else
         {
             printf("Error reading MAX6675 temperature.\n");
-            vTaskDelay(2000 / portTICK_PERIOD_MS);
+            vTaskDelay(SENSOR_MEASUREMENT_FAIL_INTERVAL_MS);
         }
     }
 }

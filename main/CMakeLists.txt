@@ -9,8 +9,6 @@
         sensor_tasks
         storage
         buzzer
-        i2c_master_bus
-        spi_master_bus
     PRIV_REQUIRES
         nvs_flash
         wifi_station

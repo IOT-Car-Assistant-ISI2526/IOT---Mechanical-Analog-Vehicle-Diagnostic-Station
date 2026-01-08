@@ -32,7 +32,7 @@
 #define ADXL345_EARTH_GRAVITY_MS2 8.318f
 
 esp_err_t adxl345_init(i2c_master_bus_handle_t bus_handle);
-esp_err_t adxl345_delete(i2c_master_dev_handle_t dev_handle);
+esp_err_t adxl345_delete();
 esp_err_t adxl345_configure();
 
 esp_err_t adxl345_set_measurement_mode();

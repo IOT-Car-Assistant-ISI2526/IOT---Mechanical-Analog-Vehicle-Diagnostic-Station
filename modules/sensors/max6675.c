@@ -4,7 +4,7 @@ static const char *TAG = "MAX6675";
 
 spi_device_handle_t max6675_handle;
 
-esp_err_t max6675_init(spi_device_handle_t *dev_handle)
+esp_err_t max6675_init()
 {
     spi_device_interface_config_t devcfg = {
         .clock_speed_hz = MAX6675_FREQ_HZ,
@@ -18,7 +18,7 @@ esp_err_t max6675_init(spi_device_handle_t *dev_handle)
     return ESP_OK;
 }
 
-esp_err_t max6675_delete(spi_device_handle_t dev_handle)
+esp_err_t max6675_delete()
 {
     return spi_bus_remove_device(max6675_handle);
 }
@@ -41,7 +41,7 @@ static float convert_raw_data(uint16_t value)
     return value * 0.25f;
 }
 
-float max6675_read_celsius(spi_device_handle_t dev_handle)
+float max6675_read_celsius()
 {
     uint8_t raw_data[2] = {0};
 
@@ -50,7 +50,7 @@ float max6675_read_celsius(spi_device_handle_t dev_handle)
         .length = 16, // Read 16 bits
         .rxlength = 16};
 
-    if (spi_device_transmit(dev_handle, &t) != ESP_OK)
+    if (spi_device_transmit(max6675_handle, &t) != ESP_OK)
     {
         return -1.0f;
     }

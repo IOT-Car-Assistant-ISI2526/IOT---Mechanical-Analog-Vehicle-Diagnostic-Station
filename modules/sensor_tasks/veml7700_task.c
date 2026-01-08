@@ -8,17 +8,17 @@ void veml7700_task(void *arg)
         if (lux >= 0.0f)
         {
             *(float *)arg = lux;
-            vTaskDelay(3600000);
+            vTaskDelay(VEML7700_MEASUREMENT_INTERVAL_MS);
         }
         else
         {
             printf("Failed to read sensor");
-            vTaskDelay(1000);
+            vTaskDelay(SENSOR_MEASUREMENT_FAIL_INTERVAL_MS);
         }
     }
 }
 
 void veml7700_start_task(float *parameter)
 {
-    xTaskCreate(veml7700_task, "VEML7700_Task", 2048, parameter, 5, NULL);
+    xTaskCreate(veml7700_task, "VEML7700_Task", 4096, parameter, 5, NULL);
 }

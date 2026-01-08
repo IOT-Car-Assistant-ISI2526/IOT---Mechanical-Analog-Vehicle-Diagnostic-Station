@@ -3,7 +3,7 @@
 static const char *TAG = "ADXL345";
 
 uint8_t link = 1;
-uint8_t auto_sleep = 0;
+uint8_t auto_sleep = 1;
 uint8_t measure_bit = 1;
 uint8_t sleep_bit = 0;
 uint8_t sleep_mode_frequency = 0; // 8 Hz
@@ -35,7 +35,7 @@ esp_err_t adxl345_init(i2c_master_bus_handle_t bus_handle)
     return ESP_OK;
 }
 
-esp_err_t adxl345_delete(i2c_master_dev_handle_t dev_handle)
+esp_err_t adxl345_delete()
 {
     return i2c_master_bus_rm_device(adxl345_handle);
 }

@@ -38,9 +38,21 @@ esp_err_t veml7700_init(i2c_master_bus_handle_t bus_handle)
     return ESP_OK;
 }
 
-esp_err_t veml7700_delete(i2c_master_dev_handle_t dev_handle)
+esp_err_t veml7700_delete()
 {
     return i2c_master_bus_rm_device(veml7700_handle);
+}
+
+void veml7700_wake_up()
+{
+    // Command 0x00 (ALS_CONF)
+    // Data LSB: 0x00
+    // Data MSB: 0x00
+    uint8_t write_buf[3] = {0x00, 0x00, 0x00};
+
+    ESP_ERROR_CHECK(i2c_master_transmit(veml7700_handle, write_buf, sizeof(write_buf), -1));
+
+    ESP_LOGI("VEML7700", "Sensor powered ON.");
 }
 
 static float convert_raw_data(uint16_t raw_counts)

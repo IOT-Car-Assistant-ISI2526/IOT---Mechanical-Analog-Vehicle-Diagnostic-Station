@@ -21,10 +21,9 @@
 #define COEF_D 1.0023
 
 /**
- * @brief Initialize the I2C bus and the VEML7700 sensor.
+ * @brief Initialize and add VEML7700 device to I2C bus.
  *
- * @param sda_pin GPIO pin for Data
- * @param scl_pin GPIO pin for Clock
+ * @param bus_handle I2C master bus handle
  * @return esp_err_t ESP_OK on success
  */
 esp_err_t veml7700_init(i2c_master_bus_handle_t bus_handle);
@@ -35,7 +34,9 @@ esp_err_t veml7700_init(i2c_master_bus_handle_t bus_handle);
  * @param dev_handle The device handle
  * @return esp_err_t ESP_OK on success
  */
-esp_err_t veml7700_delete(i2c_master_dev_handle_t dev_handle);
+esp_err_t veml7700_delete();
+
+void veml7700_wake_up();
 
 /**
  * @brief Reads the Ambient Light in Lux.
