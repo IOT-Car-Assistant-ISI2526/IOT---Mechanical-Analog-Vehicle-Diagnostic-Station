@@ -1,5 +1,6 @@
 #include "wifi_station.h"
 #include <string.h>
+#include <stddef.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -9,6 +10,9 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+
+// Flaga do wymuszenia ponownego połączenia WiFi
+volatile bool g_wifi_reconnect_request = false;
 
 // Tag do logów
 static const char *TAG_WIFI = "wifi_station";
@@ -38,6 +42,45 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
+bool read_credentials_from_nvs(char* ssid, size_t ssid_size,char* pass, size_t pass_size) {
+    nvs_handle_t my_handle;
+    esp_err_t err;
+    // Inicjalizacja buforów
+    if (ssid && ssid_size > 0) ssid[0] = '\0';
+    if (pass && pass_size > 0) pass[0] = '\0';
+
+    // Próbujemy otworzyć NVS
+    if (nvs_open("storage", NVS_READONLY, &my_handle) != ESP_OK) {
+        ESP_LOGW(TAG_WIFI, "Nie można otworzyć NVS");
+        return false;
+    }
+
+    size_t len = ssid_size;
+    err = nvs_get_str(my_handle, "wifi_ssid", ssid, &ssid_size);
+    if(err != ESP_OK) {
+        ESP_LOGW(TAG_WIFI, "Nie można odczytać SSID z NVS");
+        ssid[0] = '\0';
+    }
+
+    len = pass_size;
+    err = nvs_get_str(my_handle, "wifi_pass", pass, &pass_size);
+    if(err != ESP_OK) {
+        ESP_LOGW(TAG_WIFI, "Nie można odczytać hasła z NVS");
+        pass[0] = '\0';
+    }
+
+    nvs_close(my_handle);
+
+    // trim \r \n spacji (WAŻNE po BLE)
+    while (strlen(ssid) && (ssid[strlen(ssid)-1] == '\n' || ssid[strlen(ssid)-1] == '\r'))
+        ssid[strlen(ssid)-1] = '\0';
+
+    while (strlen(pass) && (pass[strlen(pass)-1] == '\n' || pass[strlen(pass)-1] == '\r'))
+        pass[strlen(pass)-1] = '\0';
+
+    return (strlen(ssid) > 0);
+}
+
 void wifi_station_init(void)
 {
     // 1. Odczyt danych z NVS (zapisanych przez Bluetooth)
@@ -46,20 +89,6 @@ void wifi_station_init(void)
     char pass[64] = {0};
     size_t ssid_len = sizeof(ssid);
     size_t pass_len = sizeof(pass);
-
-    // Próbujemy otworzyć NVS
-    if (nvs_open("storage", NVS_READONLY, &my_handle) == ESP_OK) {
-        nvs_get_str(my_handle, "wifi_ssid", ssid, &ssid_len);
-        nvs_get_str(my_handle, "wifi_pass", pass, &pass_len);
-        nvs_close(my_handle);
-    }
-
-    // Jeśli brak SSID, nie blokujemy programu! Pozwalamy działać BLE.
-    if (strlen(ssid) == 0) {
-        ESP_LOGW(TAG_WIFI, "Brak konfiguracji WiFi w NVS! Użyj Bluetooth, aby ustawić sieć.");
-    } else {
-        ESP_LOGI(TAG_WIFI, "Wczytano konfigurację: SSID=%s", ssid);
-    }
 
     // 2. Inicjalizacja stosu sieciowego
     esp_netif_init();
@@ -83,7 +112,7 @@ void wifi_station_init(void)
                                                         NULL));
 
     // 4. Konfiguracja i Start (tylko jeśli mamy dane)
-    if (strlen(ssid) > 0) {
+    if (read_credentials_from_nvs(ssid, sizeof(ssid), pass, sizeof(pass))) {
         wifi_config_t wifi_config = {
             .sta = {
                 .threshold.authmode = WIFI_AUTH_WPA2_PSK,
@@ -102,43 +131,43 @@ void wifi_station_init(void)
     }
 }
 
-// Funkcja wywoływana przez BLE po wpisaniu nowego hasła/komendy
-void wifi_force_reconnect(void) {
-    ESP_LOGI(TAG_WIFI, "Otrzymano rozkaz rekonfiguracji z BLE...");
+// // Funkcja wywoływana przez BLE po wpisaniu nowego hasła/komendy
+// void wifi_force_reconnect(void) {
+//     ESP_LOGI(TAG_WIFI, "Otrzymano rozkaz rekonfiguracji z BLE...");
 
-    // 1. Pobierz nowe dane z NVS
-    nvs_handle_t my_handle;
-    char ssid[33] = {0};
-    char pass[64] = {0};
-    size_t len = sizeof(ssid);
+//     // 1. Pobierz nowe dane z NVS
+//     nvs_handle_t my_handle;
+//     char ssid[33] = {0};
+//     char pass[64] = {0};
+//     size_t len = sizeof(ssid);
 
-    if (nvs_open("storage", NVS_READONLY, &my_handle) == ESP_OK) {
-        nvs_get_str(my_handle, "wifi_ssid", ssid, &len);
-        len = sizeof(pass);
-        nvs_get_str(my_handle, "wifi_pass", pass, &len);
-        nvs_close(my_handle);
-    }
+//     if (nvs_open("storage", NVS_READONLY, &my_handle) == ESP_OK) {
+//         nvs_get_str(my_handle, "wifi_ssid", ssid, &len);
+//         len = sizeof(pass);
+//         nvs_get_str(my_handle, "wifi_pass", pass, &len);
+//         nvs_close(my_handle);
+//     }
 
-    if (strlen(ssid) == 0) {
-        ESP_LOGE(TAG_WIFI, "Nadal brak SSID w NVS!");
-        return;
-    }
+//     if (strlen(ssid) == 0) {
+//         ESP_LOGE(TAG_WIFI, "Nadal brak SSID w NVS!");
+//         return;
+//     }
 
-    // 2. Rozłącz obecne i załaduj nowe
-    esp_wifi_stop(); // Zatrzymaj WiFi, żeby przeładować config bezpiecznie
+//     // 2. Rozłącz obecne i załaduj nowe
+//     esp_wifi_stop(); // Zatrzymaj WiFi, żeby przeładować config bezpiecznie
     
-    wifi_config_t wifi_config = {
-        .sta = { .threshold.authmode = WIFI_AUTH_WPA2_PSK },
-    };
-    strlcpy((char*)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
-    strlcpy((char*)wifi_config.sta.password, pass, sizeof(wifi_config.sta.password));
+//     wifi_config_t wifi_config = {
+//         .sta = { .threshold.authmode = WIFI_AUTH_WPA2_PSK },
+//     };
+//     strlcpy((char*)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
+//     strlcpy((char*)wifi_config.sta.password, pass, sizeof(wifi_config.sta.password));
 
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+//     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     
-    // 3. Startuj ponownie
-    ESP_LOGI(TAG_WIFI, "Łączenie z nową siecią: %s", ssid);
-    ESP_ERROR_CHECK(esp_wifi_start());
-}
+//     // 3. Startuj ponownie
+//     ESP_LOGI(TAG_WIFI, "Łączenie z nową siecią: %s", ssid);
+//     ESP_ERROR_CHECK(esp_wifi_start());
+// }
 
 bool wifi_check_credentials(void)
 {

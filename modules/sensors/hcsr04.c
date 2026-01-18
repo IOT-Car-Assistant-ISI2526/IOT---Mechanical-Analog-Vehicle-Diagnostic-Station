@@ -42,7 +42,7 @@ void hcsr04_task(void *arg)
                 fast_mode = true;
                 fast_mode_start_time = esp_timer_get_time();
 
-                buzzer_enable_park(true);
+                // buzzer_enable_park(true);
             }
         }
         else
@@ -60,7 +60,7 @@ void hcsr04_task(void *arg)
                 fast_mode = false;
                 success_count = 0;
 
-                buzzer_enable_park(false);
+                // buzzer_enable_park(false);
             }
         }
 

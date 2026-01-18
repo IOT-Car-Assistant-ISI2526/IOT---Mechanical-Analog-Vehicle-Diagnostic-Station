@@ -127,7 +127,7 @@ void configure_device_defaults(void)
 {
   bmp280_configure();
   adxl345_configure();
-  veml7700_wake_up(NULL);
+  // veml7700_wake_up(NULL);
   ESP_LOGI(TAG, "Devices configured with default settings.");
 }
 
@@ -227,7 +227,7 @@ void app_main(void)
   float bmp280_temp = 0.0f, veml7700_illuminance = 0.0f, max6675_engine_temp = 0.0f, adxl345_acceleration = 0.0f, hcsr04_distance = 0.0f;
 
   bmp280_start_task(&bmp280_temp);
-  veml7700_start_task(&veml7700_illuminance);
+  // veml7700_start_task(&veml7700_illuminance);
   max6675_start_task(&max6675_engine_temp);
   adxl345_start_task(&adxl345_acceleration);
   hcsr04_start_task(&hcsr04_distance);
@@ -237,6 +237,11 @@ void app_main(void)
   buzzer_init(GPIO_NUM_18);
   buzzer_beep(500);
   button_init();
+
+  // bool wifi_credentials = wifi_check_credentials();
+  // if (wifi_credentials){
+  //   wifi_station_init();
+  // }
 
   int c;
   while ((c = fgetc(stdin)) != EOF)

@@ -1,6 +1,7 @@
 #include "ble_internal.h"
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -177,7 +178,6 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
                 else if (param->write.handle == s_char_pass_handle) {
                     ESP_LOGI(TAG, "Pass: %s", buffer);
                     save_wifi_cred_to_nvs("wifi_pass", buffer);
-                    wifi_force_reconnect(); 
                 }
                 else if (param->write.handle == s_char_wifi_switch_handle) {
                     // Sprawdzamy pierwszy znak: '1' lub '0'
@@ -189,16 +189,25 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
                         if (wifi_check_credentials()) {
                             ESP_LOGI(TAG, "Odebrano komendę START. Czekam na wysłanie ACK...");
                             
-                            // 1. FIX NA ERROR 133: 
+                            // 1. FIX NA ERROR 133:
                             // Daj czas na wysłanie odpowiedzi do telefonu ZANIM obciążysz procesor WiFi
                             vTaskDelay(100 / portTICK_PERIOD_MS);
 
-                            ESP_LOGI(TAG, "Włączanie WiFi...");
+                            char ssid[33];
+                            char pass[65];
+
+                            if (!read_credentials_from_nvs(ssid, sizeof(ssid), pass, sizeof(pass))) {
+                                ESP_LOGW(TAG, "Nie udało się wczytać WiFi z NVS");
+                                break;
+                            }
+                            wifi_config_t cfg = {0};
+
+                            strncpy((char*)cfg.sta.ssid, ssid, sizeof(cfg.sta.ssid));
+                            strncpy((char*)cfg.sta.password, pass, sizeof(cfg.sta.password));
 
                             // 2. PRÓBA STARTU (Lepsze niż ciągłe init)
                             // Najpierw próbujemy po prostu wystartować radio (jeśli było tylko zatrzymane)
                             esp_err_t err = esp_wifi_start();
-                            
                             if (err == ESP_OK) {
                                 ESP_LOGI(TAG, "WiFi wystartowane (esp_wifi_start). Łączę...");
                                 esp_wifi_connect(); // Konieczne po starcie
@@ -211,9 +220,15 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
                             else {
                                 // Inny błąd (np. już działa)
                                 ESP_LOGW(TAG, "Błąd startu WiFi (może już działa?): %s", esp_err_to_name(err));
-                                // Na wszelki wypadek próbujemy połączyć
-                                esp_wifi_connect();
                             }
+                            
+                            esp_wifi_disconnect(); // Reset połączenia
+                            vTaskDelay(pdMS_TO_TICKS(200));
+
+                            esp_wifi_set_mode(WIFI_MODE_STA);
+                            esp_wifi_set_config(WIFI_IF_STA, &cfg);
+
+                            esp_wifi_connect();    // Ponowne łączenie
 
                         } else {
                             ESP_LOGW(TAG, "Brak danych WiFi w NVS!");

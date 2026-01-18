@@ -36,7 +36,7 @@ static void button_task(void *arg)
             int64_t now = esp_timer_get_time() / 1000;
             if (now - press_start >= LONG_PRESS_MS)
             {
-                ESP_LOGI("BUTTON", "WYRYTO dłuuugie przytrzymanie → start BLE provisioning");
+                ESP_LOGI("BUTTON", "WYKRYTO długie przytrzymanie → start BLE provisioning");
                 ble_server_init();
                 vTaskDelay(pdMS_TO_TICKS(1000)); // zapobiegamy wielokrotnemu wywołaniu
             }
