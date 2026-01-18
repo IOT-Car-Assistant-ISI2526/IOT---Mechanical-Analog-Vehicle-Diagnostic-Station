@@ -40,16 +40,21 @@ static esp_err_t configure_config();
 static float convert_temperature(int32_t raw_temp);
 static float convert_pressure(int32_t raw_pres);
 
-esp_err_t bmp280_init(i2c_master_bus_handle_t bus_handle)
+esp_err_t bmp280_init(i2c_master_bus_handle_t bus_handle, uint8_t address)
 {
     i2c_device_config_t dev_config = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = BMP280_ADDR,
+        .device_address = address,
         .scl_speed_hz = BMP280_SPEED_HZ,
     };
 
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_config, &bmp280_handle));
-    ESP_LOGI(TAG, "BMP280 initialized on I2C address 0x%02X", BMP280_ADDR);
+    esp_err_t err = i2c_master_bus_add_device(bus_handle, &dev_config, &bmp280_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to add BMP280 device to I2C bus: %s", esp_err_to_name(err));
+        return err;
+    }
+    ESP_LOGI(TAG, "BMP280 initialized on I2C address 0x%02X", address);
     return ESP_OK;
 }
 
@@ -182,7 +187,7 @@ float bmp280_read_temp()
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "Error reading temperature data: %s", esp_err_to_name(err));
-        return -1.0f;
+        return -100.0f;
     }
     int32_t raw_temperature = (int32_t)((data[0] << 12) | (data[1] << 4) | (data[2] >> 4));
     float temperature = convert_temperature(raw_temperature);

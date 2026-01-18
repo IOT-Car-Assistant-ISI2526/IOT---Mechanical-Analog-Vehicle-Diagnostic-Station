@@ -8,7 +8,7 @@ void bmp280_task(void *arg)
         bmp280_trigger_forced_mode();
         vTaskDelay(100 / portTICK_PERIOD_MS);
         temp = bmp280_read_temp();
-        if (temp != -1.0f)
+        if (temp != -100.0f)
         {
             *(float *)arg = temp;
             vTaskDelay(BMP280_MEASUREMENT_INTERVAL_MS); // 15 minutes

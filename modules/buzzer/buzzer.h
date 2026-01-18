@@ -4,6 +4,10 @@
 #include "driver/gpio.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include <stdatomic.h>
 
 void buzzer_init(gpio_num_t pin);
 void buzzer_beep(uint32_t duration_ms);

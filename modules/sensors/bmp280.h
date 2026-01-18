@@ -6,6 +6,7 @@
 #define BMP280_PORT I2C_NUM_0  /*!< I2C port number for BMP280 sensor */
 #define BMP280_SPEED_HZ 100000 /*!< I2C clock line frequency for BMP280 sensor */
 #define BMP280_ADDR 0x77       /*!< Address of the BMP280 sensor */
+#define BMP280_ADDR_ALT 0x76   /*!< Alternate address of the BMP280 sensor */
 #define BMP280_TEMP_MSB 0xFA   /*!< Address of the most significant bit temperature register */
 #define BMP280_PRES_MSB 0xF7   /*!< Address of the most significant bit pressure register */
 #define REG_CONFIG 0xF5        /*!< Address of the configuration register */
@@ -20,7 +21,7 @@
  * @param speed The I2C clock line frequency of this device
  * @return **i2c_master_dev_handle_t**  - The device handle
  */
-esp_err_t bmp280_init(i2c_master_bus_handle_t bus_handle);
+esp_err_t bmp280_init(i2c_master_bus_handle_t bus_handle, uint8_t address);
 /**
  * @brief Delete the BMP280 device from the I2C bus to release the underlying hardware (reccommended to remove all attached
  * devices before deleting the bus).

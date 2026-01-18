@@ -108,7 +108,22 @@ void initialize_devices_test(i2c_master_bus_handle_t bus_handle_0, i2c_master_bu
   }
   ESP_LOGI(TAG, "Initializing connected devices...");
   veml7700_init(bus_handle_1);
-  bmp280_init(bus_handle_0);
+  if (bmp280_init(bus_handle_0, BMP280_ADDR) != ESP_OK)
+  {
+    ESP_LOGW(TAG, "BMP280 not found at primary address, trying alternate address...");
+    if (bmp280_init(bus_handle_0, BMP280_ADDR_ALT) != ESP_OK)
+    {
+      ESP_LOGE(TAG, "BMP280 initialization failed at both addresses.");
+    }
+    else
+    {
+      ESP_LOGI(TAG, "BMP280 initialized at alternate address.");
+    }
+  }
+  else
+  {
+    ESP_LOGI(TAG, "BMP280 initialized at primary address.");
+  }
   adxl345_init(bus_handle_0);
   max6675_init();
   ESP_LOGI(TAG, "Devices initialized.");
