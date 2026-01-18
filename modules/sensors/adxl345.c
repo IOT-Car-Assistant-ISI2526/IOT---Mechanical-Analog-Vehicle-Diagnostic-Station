@@ -219,6 +219,7 @@ static float calculate_acceleration(float x, float y, float z)
     x = x - ADXL345_X_AXIS_CORRECTION;
     y = y - ADXL345_Y_AXIS_CORRECTION;
     z = z - ADXL345_EARTH_GRAVITY_MS2;
+
     float combined_acceleration = sqrtf(x * x + y * y + z * z);
     return combined_acceleration;
 }

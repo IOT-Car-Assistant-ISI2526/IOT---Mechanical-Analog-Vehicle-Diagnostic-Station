@@ -27,8 +27,8 @@
 #define ACT_INACT_CTL 0x27 // Activity/Inactivity Control
 
 #define ADXL345_LSB_TO_MS2 (0.004f * 9.80665f)
-#define ADXL345_X_AXIS_CORRECTION -0.037f
-#define ADXL345_Y_AXIS_CORRECTION -2.205f
+#define ADXL345_X_AXIS_CORRECTION -0.039f
+#define ADXL345_Y_AXIS_CORRECTION -2.760f
 #define ADXL345_EARTH_GRAVITY_MS2 8.318f
 
 esp_err_t adxl345_init(i2c_master_bus_handle_t bus_handle);
