@@ -15,6 +15,7 @@ static const char *TAG = "BLE_SERVER";
 #define CHAR_WIFI_SWITCH_UUID   0xFF04
 #define CHAR_HCSR04_CTRL_UUID   0xFF05  // WRITE: '1' start stream, '0' stop stream
 #define CHAR_HCSR04_DATA_UUID   0xFF06  // NOTIFY: uint16 distance_cm (LE)
+#define CHAR_ALERT_UUID         0xFF07  // NOTIFY: Sensor alerts (string)
 #define ESP_GATT_UUID_CHAR_DESCRIPTION  0x2901
 #define ESP_GATT_UUID_CHAR_CLIENT_CONFIG 0x2902
 

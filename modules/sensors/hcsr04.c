@@ -124,7 +124,7 @@ void hcsr04_task(void *arg)
     static uint32_t distance2 = 0;
     static uint32_t distance3 = 0;
     float *shared_value = (float *)arg;
-
+    int measurement_count = 0;
     int success_count = 0;
     bool medium_mode = false;
     bool fast_mode = false;
@@ -132,6 +132,13 @@ void hcsr04_task(void *arg)
 
     while (1)
     {
+        if(measurement_count > 500)
+        {
+            ble_hcsr04_set_streaming(false);
+            ESP_LOGI("HCSR04", "Auto-stop streaming after ~ 5 minutes.");
+            measurement_count = 0;
+        }
+
         return_value1 = UltrasonicMeasure(200, &distance1);
         // CRITICAL: Update buzzer immediately after measure (which blocks slightly)
         buzzer_update_tick();
@@ -203,6 +210,7 @@ void hcsr04_task(void *arg)
             vTaskDelay_with_buzzer(HCSR04_FASTMODE_INTERVAL_MS * 2);
         else
             vTaskDelay_with_buzzer(HCSR04_SLOWMODE_INTERVAL_MS);
+        measurement_count++;
     }
 }
 

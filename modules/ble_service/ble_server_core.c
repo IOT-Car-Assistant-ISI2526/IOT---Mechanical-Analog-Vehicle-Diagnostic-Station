@@ -6,6 +6,8 @@
 #include "esp_bt_main.h"
 #include "esp_gap_ble_api.h"
 #include "esp_gatts_api.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 // #include "esp_timer.h"
 
 
@@ -123,3 +125,32 @@ void ble_server_init(void) {
 //         esp_timer_stop(ble_timeout_timer);
 //     }
 // }
+
+void ble_server_stop(void)
+{
+    ESP_LOGI(TAG, "Wyłączam BLE provisioning...");
+    
+    // Stop advertising first
+    esp_ble_gap_stop_advertising();
+    
+    // Unregister GATT app
+    esp_ble_gatts_app_unregister(PROFILE_APP_ID);
+    
+    // Disable bluedroid
+    esp_bluedroid_disable();
+    esp_bluedroid_deinit();
+    
+    // Disable and deinit BT controller
+    esp_bt_controller_disable();
+    esp_bt_controller_deinit();
+    
+    ESP_LOGI(TAG, "BLE zatrzymane.");
+}
+
+void ble_server_restart(void)
+{
+    ESP_LOGI(TAG, "Restartowanie BLE...");
+    ble_server_stop();
+    vTaskDelay(pdMS_TO_TICKS(500)); // Give some time for cleanup
+    ble_server_init();
+}

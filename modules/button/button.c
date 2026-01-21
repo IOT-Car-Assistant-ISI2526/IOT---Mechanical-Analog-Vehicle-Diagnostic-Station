@@ -49,7 +49,8 @@ static void button_task(void *arg)
                 ESP_LOGI("BUTTON", "WYKRYTO długie przytrzymanie (>=3s) i puszczenie → start BLE provisioning");
                 ble_server_init();
             } else {
-                ESP_LOGI("BUTTON", "BLE provisioning już uruchomione — ignoruję kolejne długie przytrzymanie");
+                ESP_LOGI("BUTTON", "BLE provisioning już uruchomione — restartowanie BLE");
+                ble_server_restart();
             }
         }
         vTaskDelay(pdMS_TO_TICKS(50));

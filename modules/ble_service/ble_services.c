@@ -23,10 +23,13 @@ static uint16_t s_char_wifi_switch_handle;
 static uint16_t s_char_hcsr04_ctrl_handle;
 static uint16_t s_char_hcsr04_data_handle;
 static uint16_t s_char_hcsr04_cccd_handle;
+static uint16_t s_char_alert_handle;
+static uint16_t s_char_alert_cccd_handle;
 
 static _Atomic bool s_hcsr04_streaming_enabled = false;
 static _Atomic bool s_hcsr04_ctrl_wants_stream = false; // Track CTRL='1' write (user wants streaming)
 static _Atomic bool s_hcsr04_notifications_enabled = false; // Track CCCD notification state
+static _Atomic bool s_alert_notifications_enabled = false; // Track alert CCCD notification state
 static bool s_is_connected = false;
 static esp_gatt_if_t s_gatts_if = ESP_GATT_IF_NONE;
 static uint16_t s_conn_id = 0;
@@ -41,6 +44,8 @@ typedef enum
     STAGE_HCSR04_CTRL_DESC_ADDED,
     STAGE_HCSR04_DATA_DESC_ADDED,
     STAGE_HCSR04_DATA_CCCD_ADDED,
+    STAGE_ALERT_DESC_ADDED,
+    STAGE_ALERT_CCCD_ADDED,
 } ble_gatt_build_stage_t;
 
 static ble_gatt_build_stage_t s_build_stage = STAGE_NONE;
@@ -178,6 +183,11 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
                 add_user_description(s_service_handle, "HCSR04 distance_cm (uint16, notify)");
                 s_build_stage = STAGE_HCSR04_DATA_DESC_ADDED;
             }
+            else if (added_uuid == CHAR_ALERT_UUID) {
+                s_char_alert_handle = param->add_char.attr_handle;
+                add_user_description(s_service_handle, "Sensor Alerts (notify)");
+                s_build_stage = STAGE_ALERT_DESC_ADDED;
+            }
             break;
         }
 
@@ -188,8 +198,14 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
 
             if (descr_uuid == ESP_GATT_UUID_CHAR_CLIENT_CONFIG)
             {
-                s_char_hcsr04_cccd_handle = descr_handle;
-                s_build_stage = STAGE_HCSR04_DATA_CCCD_ADDED;
+                // Determine which characteristic this CCCD belongs to based on build stage
+                if (s_build_stage == STAGE_HCSR04_DATA_DESC_ADDED) {
+                    s_char_hcsr04_cccd_handle = descr_handle;
+                    s_build_stage = STAGE_HCSR04_DATA_CCCD_ADDED;
+                } else if (s_build_stage == STAGE_ALERT_DESC_ADDED) {
+                    s_char_alert_cccd_handle = descr_handle;
+                    s_build_stage = STAGE_ALERT_CCCD_ADDED;
+                }
             }
 
             // Drive the build chain using the stage, not "which handle is non-zero",
@@ -234,6 +250,20 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
                 add_cccd(s_service_handle);
             }
             else if (s_build_stage == STAGE_HCSR04_DATA_CCCD_ADDED)
+            {
+                // Add alert characteristic after HCSR04_DATA is complete
+                esp_bt_uuid_t uuid = {.len = ESP_UUID_LEN_16, .uuid.uuid16 = CHAR_ALERT_UUID};
+                esp_ble_gatts_add_char(s_service_handle, &uuid,
+                                       ESP_GATT_PERM_READ,
+                                       ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
+                                       NULL, NULL);
+            }
+            else if (s_build_stage == STAGE_ALERT_DESC_ADDED)
+            {
+                // After 0x2901 description for ALERT, add CCCD (0x2902) so the phone can enable notifications.
+                add_cccd(s_service_handle);
+            }
+            else if (s_build_stage == STAGE_ALERT_CCCD_ADDED)
             {
                 esp_ble_gatts_start_service(s_service_handle);
             }
@@ -374,6 +404,14 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
                              (int)ctrl_wants_stream, (int)notif_enabled,
                              (int)atomic_load(&s_hcsr04_streaming_enabled));
                 }
+                else if (param->write.handle == s_char_alert_cccd_handle && param->write.len >= 2) {
+                    // Alert CCCD write
+                    const uint16_t cccd = (uint16_t)param->write.value[0] | ((uint16_t)param->write.value[1] << 8);
+                    const bool notif_enabled = (cccd & 0x0001) != 0;
+                    
+                    atomic_store(&s_alert_notifications_enabled, notif_enabled);
+                    ESP_LOGI(TAG, "Alert CCCD written: 0x%04X, notifications=%d", cccd, (int)notif_enabled);
+                }
             }
             break;
         }
@@ -392,6 +430,7 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
             atomic_store(&s_hcsr04_streaming_enabled, false);
             atomic_store(&s_hcsr04_ctrl_wants_stream, false);
             atomic_store(&s_hcsr04_notifications_enabled, false);
+            atomic_store(&s_alert_notifications_enabled, false);
             esp_ble_gap_start_advertising(&adv_params); 
             break;
 
@@ -422,6 +461,38 @@ int ble_hcsr04_notify_distance_cm(uint16_t distance_cm)
                                                s_char_hcsr04_data_handle,
                                                sizeof(payload),
                                                payload,
+                                               false);
+    return (int)err;
+}
+
+// --- BLE Alert Notifications ---
+int ble_send_alert(const char* sensor_name, const char* message)
+{
+    if (!s_is_connected || s_gatts_if == ESP_GATT_IF_NONE || s_char_alert_handle == 0) {
+        return -1;
+    }
+    
+    if (!atomic_load(&s_alert_notifications_enabled)) {
+        // Notifications not enabled, silently ignore
+        return -2;
+    }
+    
+    // Format: "SENSOR: message" (max 64 bytes total)
+    char alert_msg[65];
+    int len = snprintf(alert_msg, sizeof(alert_msg), "%s: %s", sensor_name, message);
+    if (len < 0 || len >= (int)sizeof(alert_msg)) {
+        len = sizeof(alert_msg) - 1;
+        alert_msg[len] = '\0';
+    }
+    
+    ESP_LOGI(TAG, "Sending BLE alert: %s", alert_msg);
+    
+    // Send as notification (need_confirm=false)
+    esp_err_t err = esp_ble_gatts_send_indicate(s_gatts_if,
+                                               s_conn_id,
+                                               s_char_alert_handle,
+                                               len,
+                                               (uint8_t*)alert_msg,
                                                false);
     return (int)err;
 }
