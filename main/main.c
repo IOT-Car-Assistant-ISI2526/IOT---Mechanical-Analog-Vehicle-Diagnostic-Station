@@ -1,5 +1,5 @@
 #include "project_config.h"
-
+#include "utils.h"
 #include <stdio.h>
 #include <string.h>
 #include "storage_manager.h"
@@ -36,7 +36,6 @@
 #include "http_client.h"
 #include "mqtt_client_app.h"
 
-#include <time.h>
 #include "buzzer.h"
 
 // Console tag
@@ -51,10 +50,7 @@ typedef struct
   float acceleration;
 } sensor_data_t;
 
-static uint32_t get_timestamp(void)
-{
-    return (uint32_t)time(NULL);
-}
+
 
 i2c_master_bus_handle_t i2c_initialize_master(int sda, int scl)
 {
@@ -131,7 +127,6 @@ void initialize_devices_test(i2c_master_bus_handle_t bus_handle_0, i2c_master_bu
   ESP_LOGI(TAG, "Devices initialized.");
 }
 
-
 void configure_device_defaults(void)
 {
   bmp280_configure();
@@ -153,35 +148,6 @@ static void init_nvs(void)
   ESP_ERROR_CHECK(ret);
 }
 
-static sensor_data_t collect_sensor_data(float bmp, float lux, float eng, float dist, float accel)
-{
-  sensor_data_t data = {
-      .temperature = bmp,
-      .illuminance = lux,
-      .engine_temp = eng,
-      .distance = dist,
-      .acceleration = accel};
-  return data;
-}
-
-static void print_sensor(const char *name, float value, const char *unit)
-{
-    printf("%s: %.3f %s\n", name, value, unit);
-}
-
-static void save_sensor_to_storage(const char *name, float value)
-{
-    char line[128];
-    snprintf(line, sizeof(line), "%s;%lu;%.3f", name, get_timestamp(), value);
-    if (storage_write_line(line))
-    {
-        ESP_LOGI(TAG, "Saved: %s", line);
-    }
-    else
-    {
-        ESP_LOGW(TAG, "Failed to save: %s", line);
-    }
-}
 
 void get_line_from_console(char *buffer, size_t max_len)
 {
@@ -213,24 +179,6 @@ void get_line_from_console(char *buffer, size_t max_len)
       }
     }
   }
-}
-
-static void print_all_sensors(float bmp, float lux, float eng, float dist, float accel)
-{
-    print_sensor("BMP280", bmp, "C");
-    print_sensor("VEML7700", lux, "Lux");
-    print_sensor("MAX6675", eng, "C");
-    print_sensor("HC-SR04", dist, "cm");
-    print_sensor("ADXL345", accel, "m/s2");
-}
-
-static void save_all_sensors(float bmp, float lux, float eng, float dist, float accel)
-{
-    save_sensor_to_storage("BMP280", bmp);
-    save_sensor_to_storage("VEML7700", lux);
-    save_sensor_to_storage("MAX6675", eng);
-    save_sensor_to_storage("HC-SR04", dist);
-    save_sensor_to_storage("ADXL345", accel);
 }
 
 void app_main(void)
@@ -312,7 +260,6 @@ void app_main(void)
       print_all_sensors(bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
       save_all_sensors(bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
     }
-
     else
     {
       printf(">> Unknkown command: %s\n", input_line);
