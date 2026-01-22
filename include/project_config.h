@@ -21,11 +21,14 @@
 #define I2C_PORT_1_SDA_PIN 25
 #define I2C_PORT_1_SCL_PIN 26
 
-/* --- SPI for MAX6675 --- */
-#define SPI_PORT_0_SCK_PIN 14
-#define SPI_PORT_0_MISO_PIN 12 // MISO
-#define SPI_PORT_0_MOSI_PIN -1
+/* --- SPI for MAX6675 and SDcard Adapter --- */
+#define SPI_HOST_USED      SPI2_HOST 
+#define SPI_SCK_PIN        14
+#define SPI_MISO_PIN       19
+#define SPI_MOSI_PIN       23
 #define MAX_TRANSFER_SIZE 0
+#define CS_MAX6675_PIN     15
+#define CS_SD_CARD_PIN      5
 
 /* --- Measurement timing config --- */ // TODO INCONSISTENT NAMING
 #define STARTUP_DELAY_MS 500

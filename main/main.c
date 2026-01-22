@@ -36,11 +36,8 @@
 #include "http_client.h"
 #include "mqtt_client_app.h"
 
+#include <time.h>
 #include "buzzer.h"
-
-// stałe do zastąpienia funkcjami i zmiennymi
-#define BLE_PAIRED_SUCCESS true
-#define MEMORY_USAGE_PERCENT 75
 
 // Console tag
 static const char *TAG = "app_main";
@@ -53,6 +50,11 @@ typedef struct
   float distance;
   float acceleration;
 } sensor_data_t;
+
+static uint32_t get_timestamp(void)
+{
+    return (uint32_t)time(NULL);
+}
 
 i2c_master_bus_handle_t i2c_initialize_master(int sda, int scl)
 {
@@ -129,14 +131,6 @@ void initialize_devices_test(i2c_master_bus_handle_t bus_handle_0, i2c_master_bu
   ESP_LOGI(TAG, "Devices initialized.");
 }
 
-// void initialize_devices(i2c_master_bus_handle_t i2c_handle_0, i2c_master_bus_handle_t i2c_handle_1)
-// {
-//   veml7700_init(i2c_handle_1);
-//   bmp280_init(i2c_handle_0);
-//   adxl345_init(i2c_handle_0);
-//   max6675_init();
-//   ESP_LOGI(TAG, "Devices initialized.");
-// }
 
 void configure_device_defaults(void)
 {
@@ -170,24 +164,23 @@ static sensor_data_t collect_sensor_data(float bmp, float lux, float eng, float 
   return data;
 }
 
-static void print_sensor_data(const sensor_data_t *data)
+static void print_sensor(const char *name, float value, const char *unit)
 {
-  printf("BMP280:    %.2f C\n", data->temperature);
-  printf("VEML7700:  %.2f Lux\n", data->illuminance);
-  printf("MAX6675:   %.2f C\n", data->engine_temp);
-  printf("HC-SR04:   %.2f cm\n", data->distance);
-  printf("ADXL345:   %.2f m/s2\n", data->acceleration);
+    printf("%s: %.3f %s\n", name, value, unit);
 }
 
-static void format_sensor_line(char *out, size_t len, const sensor_data_t *d)
+static void save_sensor_to_storage(const char *name, float value)
 {
-  snprintf(out, len,
-           "BMP280: %.2f C\n"
-           "VEML7700: %.2f Lux\n"
-           "MAX6675: %.2f C\n"
-           "HC-SR04: %.2f cm\n"
-           "ADXL345: %.2f m/s2\n",
-           d->temperature, d->illuminance, d->engine_temp, d->distance, d->acceleration);
+    char line[128];
+    snprintf(line, sizeof(line), "%s;%lu;%.3f", name, get_timestamp(), value);
+    if (storage_write_line(line))
+    {
+        ESP_LOGI(TAG, "Saved: %s", line);
+    }
+    else
+    {
+        ESP_LOGW(TAG, "Failed to save: %s", line);
+    }
 }
 
 void get_line_from_console(char *buffer, size_t max_len)
@@ -222,11 +215,33 @@ void get_line_from_console(char *buffer, size_t max_len)
   }
 }
 
+static void print_all_sensors(float bmp, float lux, float eng, float dist, float accel)
+{
+    print_sensor("BMP280", bmp, "C");
+    print_sensor("VEML7700", lux, "Lux");
+    print_sensor("MAX6675", eng, "C");
+    print_sensor("HC-SR04", dist, "cm");
+    print_sensor("ADXL345", accel, "m/s2");
+}
+
+static void save_all_sensors(float bmp, float lux, float eng, float dist, float accel)
+{
+    save_sensor_to_storage("BMP280", bmp);
+    save_sensor_to_storage("VEML7700", lux);
+    save_sensor_to_storage("MAX6675", eng);
+    save_sensor_to_storage("HC-SR04", dist);
+    save_sensor_to_storage("ADXL345", accel);
+}
+
 void app_main(void)
 {
   i2c_master_bus_handle_t i2c_bus_0 = i2c_initialize_master(I2C_PORT_0_SDA_PIN, I2C_PORT_0_SCL_PIN); // Use your PIN numbers
   i2c_master_bus_handle_t i2c_bus_1 = i2c_initialize_master(I2C_PORT_1_SDA_PIN, I2C_PORT_1_SCL_PIN);
-  spi_initialize_master(SPI_PORT_0_MISO_PIN, SPI_PORT_0_MOSI_PIN, SPI_PORT_0_SCK_PIN); // Use your PIN numbers
+  spi_initialize_master(SPI_MISO_PIN, SPI_MOSI_PIN, SPI_SCK_PIN);
+ // Use your PIN numbers
+  
+  init_nvs();
+  storage_init();
 
   if (i2c_bus_0 != NULL && i2c_bus_1 != NULL)
   {
@@ -234,9 +249,7 @@ void app_main(void)
     configure_device_defaults();
   }
 
-  init_nvs();
 
-  storage_init();
   vTaskDelay(pdMS_TO_TICKS(STARTUP_DELAY_MS));
 
   float bmp280_temp = 0.0f, veml7700_illuminance = 0.0f, max6675_engine_temp = 0.0f, adxl345_acceleration = 0.0f, hcsr04_distance = 0.0f;
@@ -296,29 +309,13 @@ void app_main(void)
     }
     else if (strcmp(input_line, "measurement") == 0)
     {
-
-      bool valid = true;
-
-      char line[128];
-      snprintf(line, sizeof(line), "BMP280 LM: %.2f C\nVEML7700 LM: %.2f Lux\nMAX6675 LM: %.2f C\nHC-SR04 LM: %.2f cm\nADXL345 LM: %.2f m/s2\n",
-               bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
-      printf("BMP280 LM: %.2f C \nVEML7700 LM: %.2f Lux\nMAX6675 LM: %.2f C\nHC-SR04 LM: %.2f cm\nADXL345 LM: %.2f m/s2\n",
-             bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
-      if (storage_write_line(line))
-      {
-        printf(">> Zapisano.\n");
-      }
+      print_all_sensors(bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
+      save_all_sensors(bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
     }
+
     else
     {
-      if (storage_write_line(input_line))
-      {
-        printf(">> Zapisano.\n");
-      }
-      else
-      {
-        printf(">> Błąd zapisu/brak miejsca!\n");
-      }
+      printf(">> Unknkown command: %s\n", input_line);
     }
   }
 }
