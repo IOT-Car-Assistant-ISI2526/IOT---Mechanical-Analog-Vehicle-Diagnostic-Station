@@ -17,6 +17,10 @@ void max6675_task(void *arg)
         {
             *(float *)arg = engine_temp;
             vTaskDelay(MAX6675_MEASUREMENT_INTERVAL_MS); // 5 minutes
+
+            char alert_msg[32];
+            snprintf(alert_msg, sizeof(alert_msg), "%.1f", engine_temp);
+            ble_send_alert("MAX6675", alert_msg);
             save_sensor_to_storage("MAX6675_NORMAL", engine_temp);
         }
         else

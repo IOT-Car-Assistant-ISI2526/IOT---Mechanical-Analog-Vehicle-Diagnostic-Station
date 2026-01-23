@@ -71,11 +71,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
         }
     }
     
-    // 2. Restart advertisingu po rozłączeniu
-    if (event == ESP_GATTS_DISCONNECT_EVT) {
-        ESP_LOGI(TAG, "Rozłączono - wznawiam advertising");
-        esp_ble_gap_start_advertising(&adv_params);
-    }
+
 
     // 3. PRZEKAZANIE DO USŁUG (BEZ WARUNKU!)
     // Usuwamy if (gatts_if == ...), bo blokował on wykonanie kodu.

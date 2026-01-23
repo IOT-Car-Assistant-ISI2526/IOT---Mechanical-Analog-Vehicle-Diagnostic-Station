@@ -40,6 +40,8 @@ static bool s_is_connected = false;
 static esp_gatt_if_t s_gatts_if = ESP_GATT_IF_NONE;
 static uint16_t s_conn_id = 0;
 
+void ble_notify_max6675_profile(float temperature);
+
 typedef enum
 {
     STAGE_NONE = 0,
@@ -69,6 +71,50 @@ static esp_ble_adv_params_t adv_params = {
     .channel_map        = ADV_CHNL_ALL,
     .adv_filter_policy  = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
 };
+
+typedef struct {
+    char ssid[33];
+    char pass[65];
+} wifi_start_arg_t;
+
+static void ble_wifi_start_task(void* arg)
+{
+    wifi_start_arg_t* creds = (wifi_start_arg_t*)arg;
+
+    ESP_LOGI(TAG, "Starting WiFi to SSID: %s", creds->ssid);
+
+    wifi_config_t cfg = {0};
+    strncpy((char*)cfg.sta.ssid, creds->ssid, sizeof(cfg.sta.ssid));
+    strncpy((char*)cfg.sta.password, creds->pass, sizeof(cfg.sta.password));
+
+    esp_err_t err = esp_wifi_start();
+    if (err == ESP_OK) {
+        esp_wifi_connect();
+        ESP_LOGI(TAG, "WiFi started and connecting...");
+    } else if (err == ESP_ERR_WIFI_NOT_INIT) {
+        wifi_station_init();
+    } else {
+        ESP_LOGW(TAG, "WiFi start returned %s", esp_err_to_name(err));
+    }
+
+    vPortFree(creds);
+    vTaskDelete(NULL);
+}
+
+// ------------------- MAX6675 Notify Task -------------------
+typedef struct {
+    float temperature;
+} max6675_task_arg_t;
+
+static void ble_max6675_notify_task(void* arg)
+{
+    max6675_task_arg_t* data = (max6675_task_arg_t*)arg;
+    ble_notify_max6675_profile(data->temperature);
+    vPortFree(data);
+    vTaskDelete(NULL);
+}
+
+
 
 // --- HELPER: ZAPIS DO NVS ---
 static void save_wifi_cred_to_nvs(const char* key, const char* value) {
@@ -380,73 +426,29 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
                     }
                 }
 
-                else if (param->write.handle == s_char_wifi_switch_handle)
-                {
-                    // Sprawdzamy pierwszy znak: '1' lub '0'
-                    char command = buffer[0];
-                    ESP_LOGI(TAG, "Komenda Switch: %c", command);
+else if (param->write.handle == s_char_wifi_switch_handle)
+{
+    char command = buffer[0];
+    if (command == '1') {
+        char ssid[33], pass[65];
+        if (!read_credentials_from_nvs(ssid, sizeof(ssid), pass, sizeof(pass))) {
+            ESP_LOGW(TAG, "WiFi credentials missing in NVS");
+            break;
+        }
 
-                    if (command == '1') {
-                        // WŁĄCZ
-                        if (wifi_check_credentials()) {
-                            ESP_LOGI(TAG, "Odebrano komendę START. Czekam na wysłanie ACK...");
-                            
-                            // 1. FIX NA ERROR 133:
-                            // Daj czas na wysłanie odpowiedzi do telefonu ZANIM obciążysz procesor WiFi
-                            vTaskDelay(100 / portTICK_PERIOD_MS);
+        // Prepare FreeRTOS task arguments
+        wifi_start_arg_t* arg = pvPortMalloc(sizeof(wifi_start_arg_t));
+        strncpy(arg->ssid, ssid, sizeof(arg->ssid));
+        strncpy(arg->pass, pass, sizeof(arg->pass));
 
-                            char ssid[33];
-                            char pass[65];
+        // Start task — non-blocking
+        xTaskCreate(ble_wifi_start_task, "ble_wifi_start", 4096, arg, 5, NULL);
+    } else if (command == '0') {
+        ESP_LOGI(TAG, "Stopping WiFi...");
+        esp_wifi_stop();
+    }
+}
 
-                            if (!read_credentials_from_nvs(ssid, sizeof(ssid), pass, sizeof(pass))) {
-                                ESP_LOGW(TAG, "Nie udało się wczytać WiFi z NVS");
-                                break;
-                            }
-                            wifi_config_t cfg = {0};
-
-                            strncpy((char*)cfg.sta.ssid, ssid, sizeof(cfg.sta.ssid));
-                            strncpy((char*)cfg.sta.password, pass, sizeof(cfg.sta.password));
-
-                            // 2. PRÓBA STARTU (Lepsze niż ciągłe init)
-                            // Najpierw próbujemy po prostu wystartować radio (jeśli było tylko zatrzymane)
-                            esp_err_t err = esp_wifi_start();
-                            if (err == ESP_OK) {
-                                ESP_LOGI(TAG, "WiFi wystartowane (esp_wifi_start). Łączę...");
-                                esp_wifi_connect(); // Konieczne po starcie
-                            } 
-                            else if (err == ESP_ERR_WIFI_NOT_INIT) {
-                                // Jeśli zwróci błąd, że nie zainicjalizowane - dopiero wtedy robimy pełny init
-                                ESP_LOGI(TAG, "WiFi nie było zainicjalizowane. Robię pełny init...");
-                                wifi_station_init(); 
-                            }
-                            else {
-                                // Inny błąd (np. już działa)
-                                ESP_LOGW(TAG, "Błąd startu WiFi (może już działa?): %s", esp_err_to_name(err));
-                            }
-                            
-                            esp_wifi_disconnect(); // Reset połączenia
-                            vTaskDelay(pdMS_TO_TICKS(200));
-
-                            esp_wifi_set_mode(WIFI_MODE_STA);
-                            esp_wifi_set_config(WIFI_IF_STA, &cfg);
-
-                            esp_wifi_connect();    // Ponowne łączenie
-
-                        } else {
-                            ESP_LOGW(TAG, "Brak danych WiFi w NVS!");
-                        }
-                    }
-                    else if (command == '0') {
-                        ESP_LOGI(TAG, "Odebrano komendę STOP. Czekam na wysłanie ACK...");
-                        
-                        vTaskDelay(100 / portTICK_PERIOD_MS); 
-
-                        ESP_LOGI(TAG, "Zatrzymywanie WiFi...");
-                        esp_wifi_stop(); 
-                        
-                        ESP_LOGI(TAG, "WiFi zatrzymane.");
-                    }
-                }
                 else if (param->write.handle == s_char_hcsr04_ctrl_handle) {
                     char command = buffer[0];
                     ESP_LOGI(TAG, "HCSR04 stream ctrl: %c", command);
@@ -527,9 +529,10 @@ void ble_hcsr04_set_streaming(bool enable)
 
 int ble_hcsr04_notify_distance_cm(uint16_t distance_cm)
 {
-    if (!s_is_connected || s_gatts_if == ESP_GATT_IF_NONE || s_char_hcsr04_data_handle == 0)
-        return -1;
-
+    if (!s_is_connected || s_gatts_if == ESP_GATT_IF_NONE || s_char_hcsr04_data_handle == 0) {
+        ESP_LOGW(TAG, "Cannot notify: BLE not ready");
+        return ESP_ERR_INVALID_STATE;
+    }
     uint8_t payload[2] = {(uint8_t)(distance_cm & 0xFF), (uint8_t)((distance_cm >> 8) & 0xFF)};
 
     // Send as notification (need_confirm=false)
@@ -546,7 +549,7 @@ int ble_hcsr04_notify_distance_cm(uint16_t distance_cm)
 int ble_send_alert(const char* sensor_name, const char* message)
 {
     if (!s_is_connected || s_gatts_if == ESP_GATT_IF_NONE || s_char_alert_handle == 0) {
-        return -1;
+        return ESP_ERR_INVALID_STATE;
     }
     
     if (!atomic_load(&s_alert_notifications_enabled)) {

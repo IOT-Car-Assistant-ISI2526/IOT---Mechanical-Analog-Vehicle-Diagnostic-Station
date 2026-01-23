@@ -17,14 +17,13 @@ void bmp280_task(void *arg)
         {
             *(float *)arg = temp;
             
-            // Check temperature range and send BLE alert if out of range
             if (temp < BMP280_TEMP_MIN || temp > BMP280_TEMP_MAX) {
                 char alert_msg[32];
                 snprintf(alert_msg, sizeof(alert_msg), "%.1f", temp);
                 ble_send_alert("BMP280", alert_msg);
             }
             
-            vTaskDelay(BMP280_MEASUREMENT_INTERVAL_MS); // 15 minutes
+            vTaskDelay(BMP280_MEASUREMENT_INTERVAL_MS);
         }
         else
         {
