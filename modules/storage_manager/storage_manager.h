@@ -3,13 +3,13 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-// Inicjalizuje system plików (montuje SPIFFS)
+// Inicjalizuje system plików (montuje SD card z retry logiką)
 void storage_init(void);
 
-// Zwraca ilość wolnego miejsca w bajtach
+// Zwraca ilość wolnego miejsca w bajtach (0 jeśli SD nie zmontowana)
 size_t storage_get_free_space(void);
 
-// Usuwa plik z notatkami (zwalnia miejsce)
+// Usuwa plik z danymi (zwalnia miejsce)
 void storage_clear_all(void);
 
 // Zapisuje linię tekstu (zwraca true jeśli się udało)

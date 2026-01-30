@@ -1,5 +1,6 @@
 #include "project_config.h"
 #include "utils.h"
+#include "sntp_client.h"
 #include <stdio.h>
 #include <string.h>
 #include "storage_manager.h"
@@ -186,8 +187,10 @@ void app_main(void)
   i2c_master_bus_handle_t i2c_bus_0 = i2c_initialize_master(I2C_PORT_0_SDA_PIN, I2C_PORT_0_SCL_PIN);
   i2c_master_bus_handle_t i2c_bus_1 = i2c_initialize_master(I2C_PORT_1_SDA_PIN, I2C_PORT_1_SCL_PIN);
   spi_initialize_master(SPI_MISO_PIN, SPI_MOSI_PIN, SPI_SCK_PIN);
-  
+  ESP_LOGI("TIME", "BUILD_TIMESTAMP = %lu", (uint32_t)BUILD_TIMESTAMP);
+
   init_nvs();
+  sntp_client_init();  // Odczytaj ostatni timestamp z NVS
   storage_init();
 
   if (i2c_bus_0 != NULL && i2c_bus_1 != NULL)
@@ -211,7 +214,8 @@ void app_main(void)
   mqtt_client_start();
 
   buzzer_init(GPIO_NUM_18);
-  buzzer_beep(500);
+  // buzzer_beep(500);
+  // ble_server_init();
   button_init();
 
   // bool wifi_credentials = wifi_check_credentials();

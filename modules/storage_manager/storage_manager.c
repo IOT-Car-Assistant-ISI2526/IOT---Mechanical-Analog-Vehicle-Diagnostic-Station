@@ -8,6 +8,8 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "driver/spi_master.h"
 #include "driver/sdspi_host.h"
@@ -25,14 +27,23 @@ static const char *TAG = "STORAGE_MGR";
 #define PIN_NUM_CLK   SPI_SCK_PIN
 #define PIN_NUM_CS    CS_SD_CARD_PIN
 
+#define SD_INIT_RETRIES 3
+#define SD_INIT_RETRY_DELAY_MS 500
+
 static sdmmc_card_t *card;
+static bool sd_card_mounted = false;
 
 
 void storage_init(void)
 {
     esp_err_t ret;
+    int retry_count = 0;
 
-   sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    // Konfiguracja SPI hosta SD
+    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    // Zmniejsz szybkość inicjalizacyjną - czasem SD potrzebuje więcej czasu na startup
+    host.max_freq_khz = 1000;  // Zamiast 4000 - bardziej stabilne
+    
     spi_bus_config_t bus_cfg = {
         .mosi_io_num = PIN_NUM_MOSI,
         .miso_io_num = PIN_NUM_MISO,
@@ -40,13 +51,17 @@ void storage_init(void)
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
         .max_transfer_sz = 4000,
-};
+    };
 
-ret = spi_bus_initialize(SPI_HOST_USED, &bus_cfg, SPI_DMA_CH_AUTO);
+    // Inicjalizacja SPI bus
+    ret = spi_bus_initialize(SPI_HOST_USED, &bus_cfg, SPI_DMA_CH_AUTO);
     if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "SPI bus init failed");
+        ESP_LOGE(TAG, "SPI bus init failed: %s", esp_err_to_name(ret));
         return;
     }
+
+    // Stabilizacja SPI przed SD init
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
     slot_config.gpio_cs = PIN_NUM_CS;
@@ -58,42 +73,60 @@ ret = spi_bus_initialize(SPI_HOST_USED, &bus_cfg, SPI_DMA_CH_AUTO);
         .allocation_unit_size = 16 * 1024
     };
 
-    ret = esp_vfs_fat_sdspi_mount(
-        MOUNT_POINT,
-        &host,
-        &slot_config,
-        &mount_config,
-        &card
-    );
+    // Retry logika - timeout SD init jest intermittentny
+    for (retry_count = 0; retry_count < SD_INIT_RETRIES; retry_count++) {
+        ESP_LOGI(TAG, "SD card mount attempt %d/%d", retry_count + 1, SD_INIT_RETRIES);
+        
+        ret = esp_vfs_fat_sdspi_mount(
+            MOUNT_POINT,
+            &host,
+            &slot_config,
+            &mount_config,
+            &card
+        );
 
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to mount SD card (%s)", esp_err_to_name(ret));
-        return;
+        if (ret == ESP_OK) {
+            ESP_LOGI(TAG, "SD card mounted successfully");
+            ESP_LOGI(TAG, "Free space: %u bytes", storage_get_free_space());
+            if (card != NULL) {
+                sdmmc_card_print_info(stdout, card);
+            }
+            sd_card_mounted = true;
+            return;
+        }
+
+        ESP_LOGW(TAG, "SD card mount failed (%s), retry in %dms", 
+                 esp_err_to_name(ret), SD_INIT_RETRY_DELAY_MS);
+        
+        // Delay przed ponowną próbą
+        vTaskDelay(pdMS_TO_TICKS(SD_INIT_RETRY_DELAY_MS));
     }
 
-    ESP_LOGI(TAG, "SD card mounted");
-    ESP_LOGI(TAG, "Free space: %u bytes", storage_get_free_space());
-    if (card == NULL)
-    {
-        ESP_LOGE(TAG, "Card pointer is NULL!");
-    }
-    else
-    {
-        sdmmc_card_print_info(stdout, card);
-    }
-
-    sdmmc_card_print_info(stdout, card);
+    // Jeśli wszystkie próby nie powiodły się
+    ESP_LOGE(TAG, "Failed to mount SD card after %d attempts", SD_INIT_RETRIES);
+    sd_card_mounted = false;
+    ESP_LOGW(TAG, "HINT: Please verify SD card is inserted. Continuing without SD card storage.");
 }
 
 
 size_t storage_get_free_space(void)
-{
+{if (!sd_card_mounted) {
+        ESP_LOGW(TAG, "SD card not mounted, cannot get free space");
+        return 0;
+    }
+
+    
     FATFS *fs;
     DWORD free_clusters;
 
     FRESULT res = f_getfree("0:", &free_clusters, &fs);
     if (res != FR_OK) {
         ESP_LOGE(TAG, "Failed to get free space (err=%d)", res);
+        return 0;
+    }
+
+    if (!sd_card_mounted) {
+        ESP_LOGW(TAG, "SD card not mounted, cannot clear all");
         return 0;
     }
 
@@ -104,6 +137,11 @@ size_t storage_get_free_space(void)
 void storage_clear_all(void)
 {
     struct stat st;
+    if (!sd_card_mounted) {
+        ESP_LOGW(TAG, "SD card not mounted, cannot write line");
+        return;
+    }
+
     if (stat(FILE_PATH, &st) == 0) {
         unlink(FILE_PATH);
         ESP_LOGI(TAG, "File deleted");
@@ -123,6 +161,11 @@ bool storage_write_line(const char *text)
     if (!f) {
         ESP_LOGE(TAG, "Failed to open file");
         return false;
+    if (!sd_card_mounted) {
+        ESP_LOGW(TAG, "SD card not mounted, cannot read all");
+        return NULL;
+    }
+
     }
 
     int res = fprintf(f, "%s\n", text);

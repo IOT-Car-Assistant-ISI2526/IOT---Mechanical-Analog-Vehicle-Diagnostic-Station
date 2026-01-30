@@ -135,7 +135,6 @@ void hcsr04_task(void *arg)
         if(measurement_count > 500)
         {
             ble_hcsr04_set_streaming(false);
-            ESP_LOGI("HCSR04", "Auto-stop streaming after ~ 5 minutes.");
             measurement_count = 0;
         }
 

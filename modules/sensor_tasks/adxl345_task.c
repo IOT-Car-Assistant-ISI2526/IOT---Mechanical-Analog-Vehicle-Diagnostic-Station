@@ -1,4 +1,5 @@
 #include "adxl345_task.h"
+#include "utils.h"
 
 void adxl345_task(void *arg)
 {
@@ -9,6 +10,7 @@ void adxl345_task(void *arg)
         {
             *(float *)arg = acceleration;
             vTaskDelay(FREQUENT_MEASUREMENT_INTERVAL_MS);
+            save_sensor_to_storage("ADXL345", acceleration);
         }
         else
         {

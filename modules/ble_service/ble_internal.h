@@ -18,6 +18,7 @@ static const char *TAG = "BLE_SERVER";
 #define CHAR_ALERT_UUID         0xFF07  // NOTIFY: Sensor alerts (string)
 #define CHAR_MAX6675_PROFILE_CTRL_UUID   0xFF08 // WRITE: '1' start profile, '0' stop profile
 #define CHAR_MAX6675_PROFILE_DATA_UUID  0xFF09 // NOTIFY: float temperature (LE)
+// FF0A removed - timestamps now handled by FF01 (4 bytes = timestamp, text = note)
 #define ESP_GATT_UUID_CHAR_DESCRIPTION  0x2901
 #define ESP_GATT_UUID_CHAR_CLIENT_CONFIG 0x2902
 

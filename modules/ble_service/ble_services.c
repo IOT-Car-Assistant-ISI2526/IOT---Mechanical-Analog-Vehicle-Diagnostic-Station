@@ -13,6 +13,7 @@
 #include "esp_wifi.h"
 #include "storage_manager.h"
 #include "wifi_station.h"
+#include "sntp_client.h"
 
 // Zmienne statyczne na uchwyty (Handles)
 static uint16_t s_service_handle;
@@ -57,7 +58,6 @@ typedef enum
     STAGE_MAX6675_PROFILE_CTRL_DESC_ADDED,
     STAGE_MAX6675_PROFILE_DATA_ADDED,
     STAGE_MAX6675_PROFILE_DATA_CCCD_ADDED,
-
 
 } ble_gatt_build_stage_t;
 
@@ -212,7 +212,7 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
             
             if (added_uuid == CHAR_NOTES_UUID) {
                 s_char_notes_handle = param->add_char.attr_handle;
-                add_user_description(s_service_handle, "Notatki");
+                add_user_description(s_service_handle, "Notes/Timestamp (4 bytes=timestamp, text=note)");
                 s_build_stage = STAGE_NOTES_DESC_ADDED;
             } 
             else if (added_uuid == CHAR_SSID_UUID) {
@@ -266,6 +266,7 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
             const uint16_t descr_uuid = param->add_char_descr.descr_uuid.uuid.uuid16;
             const uint16_t descr_handle = param->add_char_descr.attr_handle;
 
+            // Obsługa descriptor'u 0x2902 (CCCD)
             if (descr_uuid == ESP_GATT_UUID_CHAR_CLIENT_CONFIG)
             {
                 if (s_build_stage == STAGE_HCSR04_DATA_DESC_ADDED)
@@ -372,9 +373,9 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
             {
                 add_cccd(s_service_handle);
             }
-
             else if (s_build_stage == STAGE_MAX6675_PROFILE_DATA_CCCD_ADDED)
             {
+                // Wszystkie charakterystyki dodane - start service
                 esp_ble_gatts_start_service(s_service_handle);
             }
 
@@ -404,8 +405,26 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
                 // --- Logika dla poszczególnych charakterystyk ---
                 
                 if (param->write.handle == s_char_notes_handle) {
-                    ESP_LOGI(TAG, "Notatka: %s", buffer);
-                    storage_write_line(buffer);
+                    // FF01 obsługuje dual-purpose: 4+ bajty = timestamp (wyciągnięty z pierwszych 4), reszta = notatka
+                    ESP_LOGI(TAG, "FF01 write received: len=%d, hex: %02X %02X %02X %02X %02X", 
+                             param->write.len,
+                             param->write.len > 0 ? param->write.value[0] : 0,
+                             param->write.len > 1 ? param->write.value[1] : 0,
+                             param->write.len > 2 ? param->write.value[2] : 0,
+                             param->write.len > 3 ? param->write.value[3] : 0,
+                             param->write.len > 4 ? param->write.value[4] : 0);
+                    
+                    // Jeśli mamy co najmniej 4 bajty, traktuj jako timestamp (ignoruj resztę)
+                    if (param->write.len >= 4) {
+                        uint32_t timestamp = 0;
+                        memcpy(&timestamp, param->write.value, 4);
+                        sntp_client_set_timestamp(timestamp);
+                        ESP_LOGI(TAG, "Timestamp synced via BLE (FF01): %lu", timestamp);
+                    } else {
+                        // Mniej niż 4 bajty = notatka tekstowa
+                        ESP_LOGI(TAG, "Notatka: %s", buffer);
+                        storage_write_line(buffer);
+                    }
                 } 
                 else if (param->write.handle == s_char_ssid_handle) {
                     ESP_LOGI(TAG, "SSID: %s", buffer);

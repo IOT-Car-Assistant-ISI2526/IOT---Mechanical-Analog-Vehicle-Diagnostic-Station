@@ -21,4 +21,8 @@
         ble_service
         button
         mqtt_client
+        sntp_client
 )
+if(DEFINED BUILD_TIMESTAMP)
+    add_compile_definitions(BUILD_TIMESTAMP=${BUILD_TIMESTAMP})
+endif()

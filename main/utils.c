@@ -1,11 +1,24 @@
 #include "utils.h"
-#include <time.h>
 #include "esp_log.h" 
+#include "project_config.h"
+#include "esp_timer.h"
+#include "sntp_client.h"
+#include <time.h>
+
+
+
 
 uint32_t get_timestamp(void)
 {
-    return (uint32_t)time(NULL);
+    // Jeśli BLE zsynchronizował czas, użyj systemowego time()
+    if (sntp_client_is_synced()) {
+        return (uint32_t)time(NULL);
+    }
+    
+    // Fallback: BUILD_TIMESTAMP + uptime
+    return BUILD_TIMESTAMP + (uint32_t)(esp_timer_get_time() / 1000000);
 }
+
 
 void print_sensor(const char *name, float value, const char *unit)
 {

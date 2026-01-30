@@ -33,7 +33,7 @@ void max6675_task(void *arg)
 
 void max6675_start_task(float *engine_temp)
 {
-    xTaskCreate(max6675_task, "max6675_task", 2048, engine_temp, 5, NULL);
+    xTaskCreate(max6675_task, "max6675_task", 6144, engine_temp, 5, NULL);
 }
 
 void max6675_profile_task(void *arg)

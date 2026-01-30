@@ -239,5 +239,5 @@ float adxl345_read_data()
     float x, y, z;
     convert_raw_data_to_ms2(rx, ry, rz, &x, &y, &z);
 
-    return calculate_acceleration(x, y, z);
+    return calculate_acceleration(x, y, z) - 8.9f;
 }
