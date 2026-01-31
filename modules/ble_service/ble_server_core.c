@@ -8,15 +8,7 @@
 #include "esp_gatts_api.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-// #include "esp_timer.h"
 
-
-// #define BLE_TIMEOUT_MS 300000  // 5 minut
-
-// static esp_timer_handle_t ble_timeout_timer;
-
-
-// Konfiguracja Advertisingu
 static esp_ble_adv_params_t adv_params = {
     .adv_int_min        = 0x20,
     .adv_int_max        = 0x40,
@@ -42,7 +34,6 @@ static esp_ble_adv_data_t adv_data = {
     .flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT),
 };
 
-// Obsługa zdarzeń GAP (Połączenia / Rozgłaszanie)
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
     switch (event) {
         case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
@@ -53,17 +44,14 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
                 ESP_LOGE(TAG, "Błąd startu advertisingu");
             }
             break;
-        // Obsługa rozłączenia - restart advertisingu
         case ESP_GAP_BLE_UPDATE_CONN_PARAMS_EVT:
             break;
         default: break;
     }
 }
 
-// Globalny handler GATT - przekierowuje do pliku services
 static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
     
-    // 1. Obsługa rejestracji (tylko tutaj ustawiamy nazwę)
     if (event == ESP_GATTS_REG_EVT) {
         if (param->reg.status == ESP_GATT_OK) {
             esp_ble_gap_set_device_name(DEVICE_NAME);
@@ -72,9 +60,6 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
     }
     
 
-
-    // 3. PRZEKAZANIE DO USŁUG (BEZ WARUNKU!)
-    // Usuwamy if (gatts_if == ...), bo blokował on wykonanie kodu.
     gatts_profile_event_handler(event, gatts_if, param);
 }
 
@@ -94,49 +79,20 @@ void ble_server_init(void) {
     
     ESP_LOGI(TAG, "BLE Core zainicjowane.");
 
-    // //Timer - timeout wyłączenia BLE po określonym czasie
-    // if (ble_timeout_timer == NULL)
-    // {
-    //     const esp_timer_create_args_t args = {
-    //         .callback = &ble_timeout_callback,
-    //         .name = "ble_timeout"
-    //     };
-    //     esp_timer_create(&args, &ble_timeout_timer);
-    // }
-
-    // esp_timer_start_once(ble_timeout_timer, BLE_TIMEOUT_MS * 1000);
 }
 
-// void ble_server_stop(void)
-// {
-//     ESP_LOGI("BLE", "Wyłączam BLE provisioning (timeout lub user)...");
-
-//     esp_ble_gap_stop_advertising();
-//     esp_bluedroid_disable();
-//     esp_bluedroid_deinit();
-//     esp_bt_controller_disable();
-//     esp_bt_controller_deinit();
-
-//     if (ble_timeout_timer) {
-//         esp_timer_stop(ble_timeout_timer);
-//     }
-// }
 
 void ble_server_stop(void)
 {
     ESP_LOGI(TAG, "Wyłączam BLE provisioning...");
     
-    // Stop advertising first
     esp_ble_gap_stop_advertising();
     
-    // Unregister GATT app
     esp_ble_gatts_app_unregister(PROFILE_APP_ID);
     
-    // Disable bluedroid
     esp_bluedroid_disable();
     esp_bluedroid_deinit();
     
-    // Disable and deinit BT controller
     esp_bt_controller_disable();
     esp_bt_controller_deinit();
     
@@ -147,6 +103,6 @@ void ble_server_restart(void)
 {
     ESP_LOGI(TAG, "Restartowanie BLE...");
     ble_server_stop();
-    vTaskDelay(pdMS_TO_TICKS(500)); // Give some time for cleanup
+    vTaskDelay(pdMS_TO_TICKS(500));
     ble_server_init();
 }

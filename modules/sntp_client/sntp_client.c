@@ -36,7 +36,6 @@ static void sntp_timestamp_persist_task(void *arg) {
 void sntp_client_init(void) {
     g_boot_time_us = esp_timer_get_time();
     
-    // Odczytaj ostatni zapisany timestamp z NVS
     nvs_handle_t handle;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle);
     if (err == ESP_OK) {
@@ -44,7 +43,6 @@ void sntp_client_init(void) {
         if (err == ESP_OK && g_last_known_timestamp > 0) {
             ESP_LOGI(TAG, "Restored last known timestamp from NVS: %lu", g_last_known_timestamp);
             
-            // Ustaw systemowy czas na ostatni znany + uptime
             struct timeval tv;
             tv.tv_sec = g_last_known_timestamp;
             tv.tv_usec = 0;
@@ -57,7 +55,6 @@ void sntp_client_init(void) {
         ESP_LOGW(TAG, "Failed to open NVS for reading timestamp");
     }
     
-    // Uruchom task do periodycznego zapisywania timestampu
     xTaskCreate(sntp_timestamp_persist_task, "sntp_persist", 2048, NULL, 5, NULL);
 }
 
@@ -71,7 +68,6 @@ void sntp_client_set_timestamp(uint32_t unix_timestamp) {
     g_last_known_timestamp = unix_timestamp;
     g_boot_time_us = esp_timer_get_time();
     
-    // Zapisz do NVS dla późniejszego użycia po resecie
     nvs_handle_t handle;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle);
     if (err == ESP_OK) {
@@ -90,15 +86,12 @@ void sntp_client_set_timestamp(uint32_t unix_timestamp) {
 
 uint32_t sntp_client_get_timestamp(void) {
     if (g_time_synced) {
-        // Jeśli BLE zsynchronizował czas w tej sesji, użyj time()
         return (uint32_t)time(NULL);
     } else if (g_last_known_timestamp > 0) {
-        // Jeśli mamy ostatni znany timestamp z NVS, dodaj uptime
         int64_t uptime_sec = (esp_timer_get_time() - g_boot_time_us) / 1000000;
         return g_last_known_timestamp + (uint32_t)uptime_sec;
     }
     
-    // Fallback: nie mamy żadnego czasu
     return 0;
 }
 

@@ -203,7 +203,7 @@ esp_err_t adxl345_enable_all_axis_activity_detection()
     {
         return err;
     }
-    act_inact_ctl |= 0x07; // Set bits for X, Y, Z axes
+    act_inact_ctl |= 0x07;
     return write_register_adxl345(ACT_INACT_CTL, act_inact_ctl);
 }
 

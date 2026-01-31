@@ -8,7 +8,7 @@ esp_err_t max6675_init()
 {
     spi_device_interface_config_t devcfg = {
         .clock_speed_hz = MAX6675_FREQ_HZ,
-        .mode = 0, // SPI Mode 0: CPOL=0, CPHA=0
+        .mode = 0,
         .spics_io_num = CS_MAX6675_PIN,
         .queue_size = 1,
     };
@@ -47,7 +47,7 @@ float max6675_read_celsius()
 
     spi_transaction_t t = {
         .flags = SPI_TRANS_USE_RXDATA,
-        .length = 16, // Read 16 bits
+        .length = 16,
         .rxlength = 16};
 
     if (spi_device_transmit(max6675_handle, &t) != ESP_OK)
@@ -55,13 +55,11 @@ float max6675_read_celsius()
         return -1.0f;
     }
 
-    // Combine bytes (Big Endian)
-    // `t.rx_data` contains the received bytes (big-endian): first byte = high 8 bits
     uint16_t value = (t.rx_data[0] << 8) | t.rx_data[1];
 
     if (check_open_thermocouple(value))
     {
-        return -1.0f; // Error sentinel: thermocouple open or disconnected
+        return -1.0f;
     }
 
     return convert_raw_data(value);

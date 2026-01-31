@@ -16,17 +16,17 @@ typedef struct
     int16_t dig_P9;
 } bmp280_calib_data_t;
 
-bmp280_calib_data_t cal_data; // Global instance
+bmp280_calib_data_t cal_data;
 static int32_t t_fine;
 
 static const char *TAG = "BMP280";
 
-uint8_t filter_value = 0; // Default filter coefficient
-uint8_t osrs_t = 1;       // Default temperature oversampling x1
-uint8_t osrs_p = 1;       // Default pressure oversampling x1
-uint8_t standby = 0;      // Default standby time 1000ms
-uint8_t mode = 0;         // Default mode sleep
-uint8_t spi = 0;          // Default SPI disabled
+uint8_t filter_value = 0;
+uint8_t osrs_t = 1;
+uint8_t osrs_p = 1;
+uint8_t standby = 0;
+uint8_t mode = 0;
+uint8_t spi = 0;
 
 static i2c_master_dev_handle_t bmp280_handle;
 
@@ -79,11 +79,9 @@ static void read_calibration_data()
     uint8_t reg_addr = 0x88;
     uint8_t raw_data[24];
 
-    // Write register address 0x88, then read 24 bytes
     write_register_bmp280(reg_addr, 0);
     read_register_bmp280(reg_addr, raw_data, 24);
 
-    // Parse data (LSB first)
     cal_data.dig_T1 = (raw_data[1] << 8) | raw_data[0];
     cal_data.dig_T2 = (int16_t)((raw_data[3] << 8) | raw_data[2]);
     cal_data.dig_T3 = (int16_t)((raw_data[5] << 8) | raw_data[4]);
@@ -131,7 +129,7 @@ esp_err_t bmp280_configure()
 
 esp_err_t bmp280_trigger_normal_mode()
 {
-    mode = 3; // Set mode to normal
+    mode = 3;
     esp_err_t err = configure_ctrl_meas();
 
     if (err != ESP_OK)
@@ -144,7 +142,7 @@ esp_err_t bmp280_trigger_normal_mode()
 
 esp_err_t bmp280_trigger_forced_mode()
 {
-    mode = 1; // Set mode to forced
+    mode = 1;
     esp_err_t err = configure_ctrl_meas();
 
     if (err != ESP_OK)
@@ -157,7 +155,7 @@ esp_err_t bmp280_trigger_forced_mode()
 
 esp_err_t bmp280_trigger_sleep_mode()
 {
-    mode = 0; // Set mode to sleep
+    mode = 0;
     esp_err_t err = configure_ctrl_meas();
 
     if (err != ESP_OK)
@@ -178,10 +176,10 @@ float bmp280_read_temp()
         uint8_t status;
         read_register_bmp280(BMP280_REG_STATUS, &status, 1);
         if ((status & 0x08) == 0)
-        {          // Bit 3 is 'measuring'
-            break; // Measurement finished
+        {
+            break;
         }
-        vTaskDelay(2 / portTICK_PERIOD_MS); // Wait a bit
+        vTaskDelay(2 / portTICK_PERIOD_MS);
     }
 
     if (err != ESP_OK)
@@ -191,8 +189,6 @@ float bmp280_read_temp()
     }
     int32_t raw_temperature = (int32_t)((data[0] << 12) | (data[1] << 4) | (data[2] >> 4));
     float temperature = convert_temperature(raw_temperature);
-    // printf("Temperature: %.2f °C\n", temperature);
-    // return ESP_OK;
     return temperature;
 }
 
@@ -206,10 +202,10 @@ float bmp280_read_pres()
         uint8_t status;
         read_register_bmp280(BMP280_REG_STATUS, &status, 1);
         if ((status & 0x08) == 0)
-        {          // Bit 3 is 'measuring'
-            break; // Measurement finished
+        {
+            break;
         }
-        vTaskDelay(2 / portTICK_PERIOD_MS); // Wait a bit
+        vTaskDelay(2 / portTICK_PERIOD_MS);
     }
 
     if (err != ESP_OK)
@@ -221,8 +217,6 @@ float bmp280_read_pres()
     int32_t raw_temp = (int32_t)((data[3] << 12) | (data[4] << 4) | (data[5] >> 4));
     float temperature = convert_temperature(raw_temp);
     float pressure = convert_pressure(raw_pressure);
-    // printf("Pressure: %.2f hPa\n", pressure);
-    // return ESP_OK;
     return pressure;
 }
 
@@ -296,7 +290,7 @@ static float convert_pressure(int32_t raw_pres)
     var1 = (((((int64_t)1) << 47) + var1) * (int64_t)cal_data.dig_P1) >> 33;
     if (var1 == 0)
     {
-        return 0; // avoid exception caused by division by zero
+        return 0;
     }
     p = 1048576 - raw_pres;
     p = (((p << 31) - var2) * 3125) / var1;

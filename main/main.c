@@ -223,15 +223,9 @@ void app_main(void)
   ble_send_alert("SYSTEM", mac_alert);
   ESP_LOGI(TAG, "Device MAC: %s", mac_alert);
 
-  // buzzer_init(GPIO_NUM_18);
-  // buzzer_beep(500);
-  // ble_server_init();
+  buzzer_init(GPIO_NUM_14);
   button_init();
 
-  // bool wifi_credentials = wifi_check_credentials();
-  // if (wifi_credentials){
-  //   wifi_station_init();
-  // }
 
   int c;
   while ((c = fgetc(stdin)) != EOF)

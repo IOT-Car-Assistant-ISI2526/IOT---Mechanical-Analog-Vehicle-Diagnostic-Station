@@ -17,11 +17,10 @@
 
 static const char *TAG = "STORAGE_MGR";
 
-/* Mount point and file */
+
 #define MOUNT_POINT "/sdcard"
 #define FILE_PATH   "/sdcard/data.txt"
 
-/* SPI pins – ADJUST TO YOUR WIRING */
 #define PIN_NUM_MISO  SPI_MISO_PIN
 #define PIN_NUM_MOSI  SPI_MOSI_PIN
 #define PIN_NUM_CLK   SPI_SCK_PIN
@@ -38,22 +37,18 @@ void storage_init(void)
 {
     esp_err_t ret;
     int retry_count = 0;
-
-    // SPI bus jest już zainicjalizowany w main.c przez spi_initialize_master()
-    // Tylko konfigurujemy host dla SD karty
     
     ESP_LOGI(TAG, "Configuring SD card on existing SPI3_HOST bus...");
     
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    host.slot = SPI_HOST_USED;  // SPI3_HOST
-    host.max_freq_khz = 1000;   // Niska prędkość dla stabilności podczas init
+    host.slot = SPI_HOST_USED;
+    host.max_freq_khz = 1000;
     
-    // Stabilizacja przed montowaniem SD
     vTaskDelay(pdMS_TO_TICKS(100));
 
     sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
     slot_config.gpio_cs = PIN_NUM_CS;
-    slot_config.host_id = SPI_HOST_USED;  // Musi zgadzać się z zainicjalizowanym hostem
+    slot_config.host_id = SPI_HOST_USED;
 
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
         .format_if_mount_failed = false,
@@ -61,7 +56,6 @@ void storage_init(void)
         .allocation_unit_size = 16 * 1024
     };
 
-    // Retry logika - timeout SD init jest intermittentny
     for (retry_count = 0; retry_count < SD_INIT_RETRIES; retry_count++) {
         ESP_LOGI(TAG, "SD card mount attempt %d/%d", retry_count + 1, SD_INIT_RETRIES);
         
@@ -86,11 +80,9 @@ void storage_init(void)
         ESP_LOGW(TAG, "SD card mount failed (%s), retry in %dms", 
                  esp_err_to_name(ret), SD_INIT_RETRY_DELAY_MS);
         
-        // Delay przed ponowną próbą
         vTaskDelay(pdMS_TO_TICKS(SD_INIT_RETRY_DELAY_MS));
     }
 
-    // Jeśli wszystkie próby nie powiodły się
     ESP_LOGE(TAG, "Failed to mount SD card after %d attempts", SD_INIT_RETRIES);
     sd_card_mounted = false;
     ESP_LOGW(TAG, "HINT: Please verify SD card is inserted. Continuing without SD card storage.");
