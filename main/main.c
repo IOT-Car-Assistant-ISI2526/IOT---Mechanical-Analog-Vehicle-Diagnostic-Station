@@ -5,21 +5,18 @@
 #include <string.h>
 #include "storage_manager.h"
 #include "button.h"
-#include "ble_server.h" // Bluetooth (Konfiguracja)
+#include "ble_server.h"
 
-#include "esp_log.h"   // logowanie wiadomosci
-#include "nvs_flash.h" // pamiec flash
+#include "esp_log.h"
+#include "nvs_flash.h"
 
-#include "driver/i2c_master.h" // Required for i2c_config_t, I2C_MODE_MASTER, i2c_driver_install
-#include "driver/gpio.h"       // Required for GPIO_PULLUP_ENABLE
-#include "driver/spi_master.h" // <--- Add this include at the top
-#include "esp_mac.h"           // Required for esp_read_mac
+#include "driver/i2c_master.h"
+#include "driver/gpio.h"
+#include "driver/spi_master.h"
+#include "esp_mac.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-// #include "i2c_master_bus.h"
-// #include "spi_master_bus.h"
 
 #include "storage_manager.h"
 #include "bmp280.h"
@@ -40,7 +37,6 @@
 
 #include "buzzer.h"
 
-// Console tag
 static const char *TAG = "app_main";
 
 typedef struct
@@ -59,7 +55,7 @@ i2c_master_bus_handle_t i2c_initialize_master(int sda, int scl)
   i2c_master_bus_handle_t bus_handle = NULL;
 
   i2c_master_bus_config_t i2c_bus_config = {
-      .i2c_port = -1, // Use -1 for auto-assignment
+      .i2c_port = -1, // auto
       .sda_io_num = sda,
       .scl_io_num = scl,
       .clk_source = I2C_CLK_SRC_DEFAULT,
@@ -76,7 +72,7 @@ i2c_master_bus_handle_t i2c_initialize_master(int sda, int scl)
   {
     printf("ERROR: I2C Init Failed: %s\n", esp_err_to_name(err));
     fflush(stdout);
-    abort(); // Reset so we see the error
+    abort();
   }
 
   printf("I2C Init Success. Handle: %p\n", bus_handle);
@@ -191,7 +187,7 @@ void app_main(void)
   ESP_LOGI("TIME", "BUILD_TIMESTAMP = %lu", (uint32_t)BUILD_TIMESTAMP);
 
   init_nvs();
-  sntp_client_init();  // Odczytaj ostatni timestamp z NVS
+  sntp_client_init();
   storage_init();
 
   if (i2c_bus_0 != NULL && i2c_bus_1 != NULL)
@@ -214,7 +210,6 @@ void app_main(void)
 
   mqtt_client_start();
 
-  // Wyślij alert BLE z MAC addressem urządzenia na początku
   uint8_t mac[6];
   char mac_alert[80];
   esp_read_mac(mac, ESP_MAC_WIFI_STA);
@@ -230,7 +225,6 @@ void app_main(void)
   int c;
   while ((c = fgetc(stdin)) != EOF)
   {
-    // Ignore input during sensor startup
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 

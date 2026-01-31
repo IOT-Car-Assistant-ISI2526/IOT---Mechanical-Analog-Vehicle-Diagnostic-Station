@@ -46,11 +46,9 @@
 
 #define MAX6675_PROFILE_SAMPLES_COUNT 100
 
-// Experiment: save-first-N samples to persistent storage (drop-new policy)
 #define ADXL_SAVE_LIMIT 20
 #define MAX6675_SAVE_LIMIT 20
 
-// MQTT broker used for flushing stored samples (change as needed)
 #define MQTT_BROKER_URI "mqtt://10.87.216.41:1883"
 
 #ifndef BUILD_TIMESTAMP

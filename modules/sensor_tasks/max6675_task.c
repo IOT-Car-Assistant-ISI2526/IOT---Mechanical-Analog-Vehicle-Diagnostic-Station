@@ -5,7 +5,7 @@
 
 
 #define MAX6675_PROFILE_TEMP_TRIGGER  50.0f
-#define MAX6675_PROFILE_DURATION_MS   (4 * 60 * 1000) // 4 minutes
+#define MAX6675_PROFILE_DURATION_MS   (4 * 60 * 1000)
 
 
 void max6675_task(void *arg)
@@ -16,7 +16,7 @@ void max6675_task(void *arg)
         if (engine_temp != -1.0f)
         {
             *(float *)arg = engine_temp;
-            vTaskDelay(MAX6675_MEASUREMENT_INTERVAL_MS); // 5 minutes
+            vTaskDelay(MAX6675_MEASUREMENT_INTERVAL_MS);
 
             char alert_msg[32];
             snprintf(alert_msg, sizeof(alert_msg), "%.1f", engine_temp);
@@ -88,7 +88,7 @@ void max6675_profile_task(void *arg)
             {
                 ESP_LOGI("MAX6675_PROFILE", "Profiling finished (4 minutes)");
 
-                ble_max6675_clear_profile_request(); // require new BLE '1'
+                ble_max6675_clear_profile_request();
                 threshold_reached = false;
 
                 vTaskDelay(pdMS_TO_TICKS(1000));

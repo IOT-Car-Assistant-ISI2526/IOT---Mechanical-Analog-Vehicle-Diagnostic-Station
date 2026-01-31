@@ -13,7 +13,6 @@ void veml7700_task(void *arg)
         {
             *(float *)arg = lux;
             
-            // Check lux threshold and send BLE alert if below threshold
             if (lux < VEML7700_LUX_THRESHOLD) {
                 char alert_msg[32];
                 snprintf(alert_msg, sizeof(alert_msg), "%.1f", lux);

@@ -15,7 +15,6 @@
 #include "wifi_station.h"
 #include "sntp_client.h"
 
-// Zmienne statyczne na uchwyty (Handles)
 static uint16_t s_service_handle;
 static uint16_t s_char_notes_handle;
 static uint16_t s_char_ssid_handle;
@@ -32,9 +31,9 @@ static uint16_t s_char_max6675_profile_data_cccd_handle;
 
 
 static _Atomic bool s_hcsr04_streaming_enabled = false;
-static _Atomic bool s_hcsr04_ctrl_wants_stream = false; // Track CTRL='1' write (user wants streaming)
-static _Atomic bool s_hcsr04_notifications_enabled = false; // Track CCCD notification state
-static _Atomic bool s_alert_notifications_enabled = false; // Track alert CCCD notification state
+static _Atomic bool s_hcsr04_ctrl_wants_stream = false;
+static _Atomic bool s_hcsr04_notifications_enabled = false;
+static _Atomic bool s_alert_notifications_enabled = false;
 static _Atomic bool s_max6675_profile_requested = false;
 
 static bool s_is_connected = false;
@@ -101,7 +100,6 @@ static void ble_wifi_start_task(void* arg)
     vTaskDelete(NULL);
 }
 
-// ------------------- MAX6675 Notify Task -------------------
 typedef struct {
     float temperature;
 } max6675_task_arg_t;
@@ -116,7 +114,6 @@ static void ble_max6675_notify_task(void* arg)
 
 
 
-// --- HELPER: ZAPIS DO NVS ---
 static void save_wifi_cred_to_nvs(const char* key, const char* value) {
     nvs_handle_t my_handle;
     if (nvs_open("storage", NVS_READWRITE, &my_handle) == ESP_OK) {
@@ -129,7 +126,6 @@ static void save_wifi_cred_to_nvs(const char* key, const char* value) {
     }
 }
 
-// --- HELPER: DODAWANIE OPISU ---
 static void add_user_description(uint16_t service_handle, const char* name) {
     esp_bt_uuid_t descr_uuid;
     descr_uuid.len = ESP_UUID_LEN_16;
@@ -140,7 +136,6 @@ static void add_user_description(uint16_t service_handle, const char* name) {
     char_descr_val.attr_len = strlen(name);
     char_descr_val.attr_value = (uint8_t *)name;
 
-    // WAŻNE: auto_rsp = ESP_GATT_AUTO_RSP naprawia błąd odczytu (Error 133)
     esp_attr_control_t control;
     control.auto_rsp = ESP_GATT_AUTO_RSP;
 
@@ -156,7 +151,6 @@ static void add_cccd(uint16_t service_handle)
     descr_uuid.len = ESP_UUID_LEN_16;
     descr_uuid.uuid.uuid16 = ESP_GATT_UUID_CHAR_CLIENT_CONFIG;
 
-    // Default: notifications disabled (0x0000)
     static uint8_t cccd_val[2] = {0x00, 0x00};
     esp_attr_value_t descr_val = {
         .attr_max_len = sizeof(cccd_val),
@@ -174,25 +168,21 @@ static void add_cccd(uint16_t service_handle)
                                  &control);
 }
 
-// --- GŁÓWNY HANDLER ---
 void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
     switch (event) {
         
-        // 1. REJESTRACJA -> TWORZYMY SERWIS
         case ESP_GATTS_REG_EVT: {
             ESP_LOGI(TAG, "Tworzenie serwisu...");
             esp_gatt_srvc_id_t service_id;
             service_id.is_primary = true;
             service_id.id.inst_id = 0x00;
             service_id.id.uuid.len = ESP_UUID_LEN_16;
-            service_id.id.uuid.uuid.uuid16 = SERVICE_UUID; // Zakładam, że SERVICE_UUID jest w ble_internal.h
+            service_id.id.uuid.uuid.uuid16 = SERVICE_UUID;
 
-            // Add extra attributes for additional characteristics + descriptors
             esp_ble_gatts_create_service(gatts_if, &service_id, 32);
             break;
         }
 
-        // 2. SERWIS UTWORZONY -> DODAJEMY PIERWSZĄ CHARAKTERYSTYKĘ (NOTES)
         case ESP_GATTS_CREATE_EVT: {
             s_service_handle = param->create.service_handle;
             
@@ -206,7 +196,6 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
             break;
         }
 
-        // 3. OBSŁUGA DODANIA CHARAKTERYSTYKI -> TUTAJ DODAJEMY JEJ OPIS
         case ESP_GATTS_ADD_CHAR_EVT: {
             uint16_t added_uuid = param->add_char.char_uuid.uuid.uuid16;
             
@@ -261,12 +250,10 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
             break;
         }
 
-        // 4. ŁAŃCUCH TWORZENIA: OPIS DODANY -> DODAJ NASTĘPNĄ CHARAKTERYSTYKĘ
         case ESP_GATTS_ADD_CHAR_DESCR_EVT: {
             const uint16_t descr_uuid = param->add_char_descr.descr_uuid.uuid.uuid16;
             const uint16_t descr_handle = param->add_char_descr.attr_handle;
 
-            // Obsługa descriptor'u 0x2902 (CCCD)
             if (descr_uuid == ESP_GATT_UUID_CHAR_CLIENT_CONFIG)
             {
                 if (s_build_stage == STAGE_HCSR04_DATA_DESC_ADDED)
@@ -286,8 +273,6 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
                 }
             }
 
-            // Drive the build chain using the stage, not "which handle is non-zero",
-            // because HCSR04_DATA adds *two* descriptors (2901 + 2902).
             if (s_build_stage == STAGE_NOTES_DESC_ADDED)
             {
                 esp_bt_uuid_t uuid = {.len = ESP_UUID_LEN_16, .uuid.uuid16 = CHAR_SSID_UUID};
@@ -324,12 +309,10 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
             }
             else if (s_build_stage == STAGE_HCSR04_DATA_DESC_ADDED)
             {
-                // After 0x2901 description for DATA, add CCCD (0x2902) so the phone can enable notifications.
                 add_cccd(s_service_handle);
             }
             else if (s_build_stage == STAGE_HCSR04_DATA_CCCD_ADDED)
             {
-                // Add alert characteristic after HCSR04_DATA is complete
                 esp_bt_uuid_t uuid = {.len = ESP_UUID_LEN_16, .uuid.uuid16 = CHAR_ALERT_UUID};
                 esp_ble_gatts_add_char(s_service_handle, &uuid,
                                        ESP_GATT_PERM_READ,
@@ -338,7 +321,6 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
             }
             else if (s_build_stage == STAGE_ALERT_DESC_ADDED)
             {
-                // After 0x2901 description for ALERT, add CCCD (0x2902) so the phone can enable notifications.
                 add_cccd(s_service_handle);
             }
             else if (s_build_stage == STAGE_ALERT_CCCD_ADDED)
@@ -375,7 +357,6 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
             }
             else if (s_build_stage == STAGE_MAX6675_PROFILE_DATA_CCCD_ADDED)
             {
-                // Wszystkie charakterystyki dodane - start service
                 esp_ble_gatts_start_service(s_service_handle);
             }
 
@@ -383,29 +364,23 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
         }
 
         case ESP_GATTS_START_EVT:
-            ESP_LOGI(TAG, "Serwis gotowy i wystartowany.");
+            ESP_LOGI(TAG, "Service ready.");
             break;
 
-        // --- OBSŁUGA ZAPISU ---
         case ESP_GATTS_WRITE_EVT: {
             
-            // 1. Potwierdzenie (ACK) - ważne dla stabilności
             if (param->write.need_rsp) {
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
             }
 
-            // 2. Przetwarzanie danych
             if (param->write.len > 0) {
-                // Kopiowanie danych do bufora (bezpieczne zakończenie stringa)
                 char buffer[65];
                 int len = (param->write.len > 64) ? 64 : param->write.len;
                 memcpy(buffer, param->write.value, len);
                 buffer[len] = '\0';
 
-                // --- Logika dla poszczególnych charakterystyk ---
                 
                 if (param->write.handle == s_char_notes_handle) {
-                    // FF01 obsługuje dual-purpose: 4+ bajty = timestamp (wyciągnięty z pierwszych 4), reszta = notatka
                     ESP_LOGI(TAG, "FF01 write received: len=%d, hex: %02X %02X %02X %02X %02X", 
                              param->write.len,
                              param->write.len > 0 ? param->write.value[0] : 0,
@@ -414,14 +389,12 @@ void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts
                              param->write.len > 3 ? param->write.value[3] : 0,
                              param->write.len > 4 ? param->write.value[4] : 0);
                     
-                    // Jeśli mamy co najmniej 4 bajty, traktuj jako timestamp (ignoruj resztę)
                     if (param->write.len >= 4) {
                         uint32_t timestamp = 0;
                         memcpy(&timestamp, param->write.value, 4);
                         sntp_client_set_timestamp(timestamp);
                         ESP_LOGI(TAG, "Timestamp synced via BLE (FF01): %lu", timestamp);
                     } else {
-                        // Mniej niż 4 bajty = notatka tekstowa
                         ESP_LOGI(TAG, "Notatka: %s", buffer);
                         storage_write_line(buffer);
                     }
@@ -455,12 +428,10 @@ else if (param->write.handle == s_char_wifi_switch_handle)
             break;
         }
 
-        // Prepare FreeRTOS task arguments
         wifi_start_arg_t* arg = pvPortMalloc(sizeof(wifi_start_arg_t));
         strncpy(arg->ssid, ssid, sizeof(arg->ssid));
         strncpy(arg->pass, pass, sizeof(arg->pass));
 
-        // Start task — non-blocking
         xTaskCreate(ble_wifi_start_task, "ble_wifi_start", 4096, arg, 5, NULL);
     } else if (command == '0') {
         ESP_LOGI(TAG, "Stopping WiFi...");
@@ -472,11 +443,9 @@ else if (param->write.handle == s_char_wifi_switch_handle)
                     char command = buffer[0];
                     ESP_LOGI(TAG, "HCSR04 stream ctrl: %c", command);
                     
-                    // Update CTRL state: '1' = user wants streaming, '0' = user wants to stop
                     bool ctrl_wants_stream = (command == '1');
                     atomic_store(&s_hcsr04_ctrl_wants_stream, ctrl_wants_stream);
                     
-                    // Update streaming state: enabled only if CTRL='1' AND notifications are enabled
                     bool notif_enabled = atomic_load(&s_hcsr04_notifications_enabled);
                     atomic_store(&s_hcsr04_streaming_enabled, ctrl_wants_stream && notif_enabled);
                     
@@ -485,16 +454,14 @@ else if (param->write.handle == s_char_wifi_switch_handle)
                              (int)atomic_load(&s_hcsr04_streaming_enabled));
                 }
 
-                // Handle CCCD write: react-native-ble-plx automatically enables notifications when monitorCharacteristicForService is called
                 if (param->write.handle == s_char_hcsr04_cccd_handle && param->write.len >= 2) {
-                    // CCCD is little-endian: [0] = LSB, [1] = MSB
                     const uint16_t cccd = (uint16_t)param->write.value[0] | ((uint16_t)param->write.value[1] << 8);
-                    const bool notif_enabled = (cccd & 0x0001) != 0; // Bit 0 = notifications enabled
+                    const bool notif_enabled = (cccd & 0x0001) != 0;
                     
                     atomic_store(&s_hcsr04_notifications_enabled, notif_enabled);
                     ESP_LOGI(TAG, "HCSR04 CCCD written: 0x%04X, notifications=%d", cccd, (int)notif_enabled);
                     
-                    // Update streaming state: enabled only if CTRL='1' was written AND notifications are now enabled
+                
                     bool ctrl_wants_stream = atomic_load(&s_hcsr04_ctrl_wants_stream);
                     atomic_store(&s_hcsr04_streaming_enabled, ctrl_wants_stream && notif_enabled);
                     
@@ -503,7 +470,6 @@ else if (param->write.handle == s_char_wifi_switch_handle)
                              (int)atomic_load(&s_hcsr04_streaming_enabled));
                 }
                 else if (param->write.handle == s_char_alert_cccd_handle && param->write.len >= 2) {
-                    // Alert CCCD write
                     const uint16_t cccd = (uint16_t)param->write.value[0] | ((uint16_t)param->write.value[1] << 8);
                     const bool notif_enabled = (cccd & 0x0001) != 0;
                     
@@ -554,7 +520,6 @@ int ble_hcsr04_notify_distance_cm(uint16_t distance_cm)
     }
     uint8_t payload[2] = {(uint8_t)(distance_cm & 0xFF), (uint8_t)((distance_cm >> 8) & 0xFF)};
 
-    // Send as notification (need_confirm=false)
     esp_err_t err = esp_ble_gatts_send_indicate(s_gatts_if,
                                                s_conn_id,
                                                s_char_hcsr04_data_handle,
@@ -564,7 +529,6 @@ int ble_hcsr04_notify_distance_cm(uint16_t distance_cm)
     return (int)err;
 }
 
-// --- BLE Alert Notifications ---
 int ble_send_alert(const char* sensor_name, const char* message)
 {
     if (!s_is_connected || s_gatts_if == ESP_GATT_IF_NONE || s_char_alert_handle == 0) {
@@ -572,11 +536,9 @@ int ble_send_alert(const char* sensor_name, const char* message)
     }
     
     if (!atomic_load(&s_alert_notifications_enabled)) {
-        // Notifications not enabled, silently ignore
         return -2;
     }
     
-    // Format: "SENSOR: message" (max 64 bytes total)
     char alert_msg[65];
     int len = snprintf(alert_msg, sizeof(alert_msg), "%s: %s", sensor_name, message);
     if (len < 0 || len >= (int)sizeof(alert_msg)) {
@@ -586,7 +548,6 @@ int ble_send_alert(const char* sensor_name, const char* message)
     
     ESP_LOGI(TAG, "Sending BLE alert: %s", alert_msg);
     
-    // Send as notification (need_confirm=false)
     esp_err_t err = esp_ble_gatts_send_indicate(s_gatts_if,
                                                s_conn_id,
                                                s_char_alert_handle,
@@ -620,6 +581,6 @@ void ble_notify_max6675_profile(float temperature)
         s_char_max6675_profile_data_handle,
         sizeof(payload),
         payload,
-        false  // notification (not indication)
+        false
     );
 }

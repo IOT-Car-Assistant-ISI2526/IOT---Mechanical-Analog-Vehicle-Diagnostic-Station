@@ -6,15 +6,13 @@
 #include "freertos/task.h"
 
 
-// External button on GPIO4 (recommended wiring: button shorts GPIO4 to GND, use internal pull-up)
 #define BUTTON_GPIO GPIO_NUM_4
-#define LONG_PRESS_MS 3000  // 3 sekundy (hold)
+#define LONG_PRESS_MS 3000
 
 static volatile bool button_down = false;
 static volatile int64_t press_start_ms = 0;
 static volatile bool long_press_released = false;
 
-// Guard against re-initializing BLE multiple times (ble_server_init() is not meant to be called repeatedly).
 static bool ble_started = false;
 
 static void IRAM_ATTR button_isr(void* arg)
@@ -22,15 +20,12 @@ static void IRAM_ATTR button_isr(void* arg)
     int level = gpio_get_level(BUTTON_GPIO);
 
     if (level == 0) {
-        // wciśnięty
         button_down = true;
         press_start_ms = esp_timer_get_time() / 1000;
     } else {
-        // puszczony
         button_down = false;
         int64_t now_ms = esp_timer_get_time() / 1000;
         if ((now_ms - press_start_ms) >= LONG_PRESS_MS) {
-            // Evaluate long-press on release (unclicking)
             long_press_released = true;
         }
     }

@@ -125,7 +125,6 @@ static void publish_storage_via_mqtt(esp_mqtt_client_handle_t client,
             snprintf(payload, sizeof(payload),
                      "%s;%s", ts, val);
 
-            //send via MQTT
             esp_mqtt_client_publish( 
                 client,
                 topic,

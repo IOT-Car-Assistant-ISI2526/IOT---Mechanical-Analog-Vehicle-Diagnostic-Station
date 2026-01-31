@@ -10,12 +10,10 @@
 
 uint32_t get_timestamp(void)
 {
-    // Jeśli BLE zsynchronizował czas, użyj systemowego time()
     if (sntp_client_is_synced()) {
         return (uint32_t)time(NULL);
     }
     
-    // Fallback: BUILD_TIMESTAMP + uptime
     return BUILD_TIMESTAMP + (uint32_t)(esp_timer_get_time() / 1000000);
 }
 
