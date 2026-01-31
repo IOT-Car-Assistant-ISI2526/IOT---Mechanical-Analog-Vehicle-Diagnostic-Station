@@ -22,8 +22,9 @@
 #define I2C_PORT_1_SCL_PIN 26
 
 /* --- SPI for MAX6675 and SDcard Adapter --- */
-#define SPI_HOST_USED      SPI2_HOST 
-#define SPI_SCK_PIN        14
+#define SPI_HOST_USED      SPI3_HOST 
+
+#define SPI_SCK_PIN        18
 #define SPI_MISO_PIN       19
 #define SPI_MOSI_PIN       23
 #define MAX_TRANSFER_SIZE 0

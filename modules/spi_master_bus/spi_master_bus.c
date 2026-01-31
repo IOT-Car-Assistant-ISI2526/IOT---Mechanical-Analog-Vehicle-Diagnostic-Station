@@ -12,7 +12,7 @@ esp_err_t spi_initialize_master(int miso, int mosi, int sck)
         .quadhd_io_num = -1,
         .max_transfer_sz = MAX_TRANSFER_SIZE,
     };
-
-    ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
+    
+    ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO));
     return ESP_OK;
 }

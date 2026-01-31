@@ -13,6 +13,7 @@
 #include "driver/i2c_master.h" // Required for i2c_config_t, I2C_MODE_MASTER, i2c_driver_install
 #include "driver/gpio.h"       // Required for GPIO_PULLUP_ENABLE
 #include "driver/spi_master.h" // <--- Add this include at the top
+#include "esp_mac.h"           // Required for esp_read_mac
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -94,7 +95,7 @@ esp_err_t spi_initialize_master(int miso, int mosi, int sck)
       .max_transfer_sz = MAX_TRANSFER_SIZE,
   };
 
-  ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
+  ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO));
   return ESP_OK;
 }
 
@@ -213,7 +214,16 @@ void app_main(void)
 
   mqtt_client_start();
 
-  buzzer_init(GPIO_NUM_18);
+  // Wyślij alert BLE z MAC addressem urządzenia na początku
+  uint8_t mac[6];
+  char mac_alert[80];
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  snprintf(mac_alert, sizeof(mac_alert), "MAC: %02X%02X%02X%02X%02X%02X",
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  ble_send_alert("SYSTEM", mac_alert);
+  ESP_LOGI(TAG, "Device MAC: %s", mac_alert);
+
+  // buzzer_init(GPIO_NUM_18);
   // buzzer_beep(500);
   // ble_server_init();
   button_init();
