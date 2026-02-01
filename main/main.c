@@ -210,13 +210,7 @@ void app_main(void)
 
   mqtt_client_start();
 
-  uint8_t mac[6];
-  char mac_alert[80];
-  esp_read_mac(mac, ESP_MAC_WIFI_STA);
-  snprintf(mac_alert, sizeof(mac_alert), "MAC: %02X%02X%02X%02X%02X%02X",
-           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-  ble_send_alert("SYSTEM", mac_alert);
-  ESP_LOGI(TAG, "Device MAC: %s", mac_alert);
+
 
   buzzer_init(GPIO_NUM_14);
   button_init();

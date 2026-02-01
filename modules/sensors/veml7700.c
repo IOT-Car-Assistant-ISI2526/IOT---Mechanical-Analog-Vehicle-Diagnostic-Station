@@ -1,4 +1,3 @@
-/* veml7700.c */
 #include "veml7700.h"
 
 static const char *TAG = "VEML7700";

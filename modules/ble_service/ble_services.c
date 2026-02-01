@@ -14,6 +14,7 @@
 #include "storage_manager.h"
 #include "wifi_station.h"
 #include "sntp_client.h"
+#include "esp_mac.h"
 
 static uint16_t s_service_handle;
 static uint16_t s_char_notes_handle;
@@ -41,6 +42,7 @@ static esp_gatt_if_t s_gatts_if = ESP_GATT_IF_NONE;
 static uint16_t s_conn_id = 0;
 
 void ble_notify_max6675_profile(float temperature);
+int ble_send_alert(const char* sensor_name, const char* message);
 
 typedef enum
 {
@@ -475,6 +477,14 @@ else if (param->write.handle == s_char_wifi_switch_handle)
                     
                     atomic_store(&s_alert_notifications_enabled, notif_enabled);
                     ESP_LOGI(TAG, "Alert CCCD written: 0x%04X, notifications=%d", cccd, (int)notif_enabled);
+
+                    uint8_t mac[6];
+                    char mac_alert[80];
+                    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+                    snprintf(mac_alert, sizeof(mac_alert), "%02X%02X%02X%02X%02X%02X",
+                             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+                    ble_send_alert("MAC", mac_alert);
+                    ESP_LOGI(TAG, "MAC: %s", mac_alert);
                 }
             }
             break;

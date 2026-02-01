@@ -68,12 +68,12 @@ void storage_init(void)
         );
 
         if (ret == ESP_OK) {
+            sd_card_mounted = true;
             ESP_LOGI(TAG, "SD card mounted successfully");
-            ESP_LOGI(TAG, "Free space: %u bytes", storage_get_free_space());
+            ESP_LOGI(TAG, "Free space: %zu bytes", storage_get_free_space());
             if (card != NULL) {
                 sdmmc_card_print_info(stdout, card);
             }
-            sd_card_mounted = true;
             return;
         }
 
