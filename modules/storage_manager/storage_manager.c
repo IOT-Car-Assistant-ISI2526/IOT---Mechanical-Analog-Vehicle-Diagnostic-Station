@@ -138,7 +138,10 @@ void storage_clear_all(void)
         return;
     }
 
+    ESP_LOGI(TAG, "[CLEAR] Task %s requesting SPI mutex to clear SD", pcTaskGetName(NULL));
     spi_bus_mutex_lock();
+    ESP_LOGI(TAG, "[CLEAR] Task %s acquired SPI mutex, deleting file", pcTaskGetName(NULL));
+    
     struct stat st;
     if (stat(FILE_PATH, &st) == 0) {
         unlink(FILE_PATH);
@@ -146,6 +149,8 @@ void storage_clear_all(void)
     } else {
         ESP_LOGW(TAG, "File does not exist");
     }
+    
+    ESP_LOGI(TAG, "[CLEAR] Task %s releasing SPI mutex after clear", pcTaskGetName(NULL));
     spi_bus_mutex_unlock();
 }
 
@@ -156,7 +161,10 @@ bool storage_write_line(const char *text)
         return false;
     }
 
+    ESP_LOGI(TAG, "[WRITE] Task %s requesting SPI mutex to write to SD", pcTaskGetName(NULL));
     spi_bus_mutex_lock();
+    ESP_LOGI(TAG, "[WRITE] Task %s acquired SPI mutex, writing: %.20s...", pcTaskGetName(NULL), text);
+    
     if (storage_get_free_space_unlocked() < 512) {
         ESP_LOGW(TAG, "Not enough space on SD card");
         spi_bus_mutex_unlock();
@@ -172,6 +180,8 @@ bool storage_write_line(const char *text)
 
     int res = fprintf(f, "%s\n", text);
     fclose(f);
+    
+    ESP_LOGI(TAG, "[WRITE] Task %s releasing SPI mutex after write", pcTaskGetName(NULL));
     spi_bus_mutex_unlock();
 
     return (res >= 0);
@@ -184,9 +194,13 @@ char *storage_read_all(void)
         return NULL;
     }
 
+    ESP_LOGI(TAG, "[READ] Task %s requesting SPI mutex to read from SD", pcTaskGetName(NULL));
     spi_bus_mutex_lock();
+    ESP_LOGI(TAG, "[READ] Task %s acquired SPI mutex, reading file", pcTaskGetName(NULL));
+    
     FILE *f = fopen(FILE_PATH, "r");
     if (!f) {
+        ESP_LOGI(TAG, "[READ] Task %s releasing SPI mutex (file not found)", pcTaskGetName(NULL));
         spi_bus_mutex_unlock();
         return NULL;
     }
@@ -197,6 +211,7 @@ char *storage_read_all(void)
 
     if (size <= 0) {
         fclose(f);
+        ESP_LOGI(TAG, "[READ] Task %s releasing SPI mutex (empty file)", pcTaskGetName(NULL));
         spi_bus_mutex_unlock();
         return NULL;
     }
@@ -204,6 +219,7 @@ char *storage_read_all(void)
     char *buf = malloc(size + 1);
     if (!buf) {
         fclose(f);
+        ESP_LOGI(TAG, "[READ] Task %s releasing SPI mutex (malloc failed)", pcTaskGetName(NULL));
         spi_bus_mutex_unlock();
         return NULL;
     }
@@ -211,6 +227,8 @@ char *storage_read_all(void)
     fread(buf, 1, size, f);
     buf[size] = '\0';
     fclose(f);
+    
+    ESP_LOGI(TAG, "[READ] Task %s releasing SPI mutex after reading %ld bytes", pcTaskGetName(NULL), size);
     spi_bus_mutex_unlock();
 
     return buf;

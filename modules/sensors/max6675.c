@@ -53,12 +53,18 @@ float max6675_read_celsius()
         .length = 16,
         .rxlength = 16};
 
+    ESP_LOGI(TAG, "[MAX6675] Task %s requesting SPI mutex for temperature read", pcTaskGetName(NULL));
     spi_bus_mutex_lock();
+    ESP_LOGI(TAG, "[MAX6675] Task %s acquired SPI mutex, transmitting", pcTaskGetName(NULL));
+    
     esp_err_t err = spi_device_transmit(max6675_handle, &t);
+    
+    ESP_LOGI(TAG, "[MAX6675] Task %s releasing SPI mutex", pcTaskGetName(NULL));
     spi_bus_mutex_unlock();
 
     if (err != ESP_OK)
     {
+        ESP_LOGW(TAG, "SPI transmit error: %s", esp_err_to_name(err));
         return -1.0f;
     }
 
