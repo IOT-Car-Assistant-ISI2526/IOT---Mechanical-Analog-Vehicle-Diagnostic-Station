@@ -18,6 +18,7 @@
         log
         spiffs
         storage_manager
+        spi_master_bus
         ble_service
         button
         mqtt_client

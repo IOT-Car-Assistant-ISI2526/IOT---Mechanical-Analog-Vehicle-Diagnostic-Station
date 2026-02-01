@@ -1,5 +1,6 @@
 #include "max6675.h"
 #include "project_config.h"
+#include "spi_bus_mutex.h"
 static const char *TAG = "MAX6675";
 
 spi_device_handle_t max6675_handle;
@@ -13,7 +14,9 @@ esp_err_t max6675_init()
         .queue_size = 1,
     };
 
+    spi_bus_mutex_lock();
     ESP_ERROR_CHECK(spi_bus_add_device(SPI_HOST_USED, &devcfg, &max6675_handle));
+    spi_bus_mutex_unlock();
     ESP_LOGI(TAG, "device added to SPI bus");
     return ESP_OK;
 }
@@ -50,7 +53,11 @@ float max6675_read_celsius()
         .length = 16,
         .rxlength = 16};
 
-    if (spi_device_transmit(max6675_handle, &t) != ESP_OK)
+    spi_bus_mutex_lock();
+    esp_err_t err = spi_device_transmit(max6675_handle, &t);
+    spi_bus_mutex_unlock();
+
+    if (err != ESP_OK)
     {
         return -1.0f;
     }

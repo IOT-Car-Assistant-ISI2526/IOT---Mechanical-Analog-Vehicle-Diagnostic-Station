@@ -14,6 +14,7 @@
 #include "driver/spi_master.h"
 #include "driver/sdspi_host.h"
 #include "sdmmc_cmd.h"
+#include "spi_bus_mutex.h"
 
 static const char *TAG = "STORAGE_MGR";
 
@@ -31,6 +32,8 @@ static const char *TAG = "STORAGE_MGR";
 
 static sdmmc_card_t *card;
 static bool sd_card_mounted = false;
+
+static size_t storage_get_free_space_unlocked(void);
 
 
 void storage_init(void)
@@ -59,6 +62,7 @@ void storage_init(void)
     for (retry_count = 0; retry_count < SD_INIT_RETRIES; retry_count++) {
         ESP_LOGI(TAG, "SD card mount attempt %d/%d", retry_count + 1, SD_INIT_RETRIES);
         
+        spi_bus_mutex_lock();
         ret = esp_vfs_fat_sdspi_mount(
             MOUNT_POINT,
             &host,
@@ -70,12 +74,16 @@ void storage_init(void)
         if (ret == ESP_OK) {
             sd_card_mounted = true;
             ESP_LOGI(TAG, "SD card mounted successfully");
-            ESP_LOGI(TAG, "Free space: %zu bytes", storage_get_free_space());
+            size_t free_space = storage_get_free_space_unlocked();
+            spi_bus_mutex_unlock();
+            ESP_LOGI(TAG, "Free space: %zu bytes", free_space);
             if (card != NULL) {
                 sdmmc_card_print_info(stdout, card);
             }
             return;
         }
+
+        spi_bus_mutex_unlock();
 
         ESP_LOGW(TAG, "SD card mount failed (%s), retry in %dms", 
                  esp_err_to_name(ret), SD_INIT_RETRY_DELAY_MS);
@@ -89,7 +97,7 @@ void storage_init(void)
 }
 
 
-size_t storage_get_free_space(void)
+static size_t storage_get_free_space_unlocked(void)
 {
     if (!sd_card_mounted) {
         ESP_LOGW(TAG, "SD card not mounted, cannot get free space");
@@ -108,6 +116,20 @@ size_t storage_get_free_space(void)
     return (size_t)free_clusters * fs->csize * 512;
 }
 
+size_t storage_get_free_space(void)
+{
+    if (!sd_card_mounted) {
+        ESP_LOGW(TAG, "SD card not mounted, cannot get free space");
+        return 0;
+    }
+
+    spi_bus_mutex_lock();
+    size_t free_space = storage_get_free_space_unlocked();
+    spi_bus_mutex_unlock();
+
+    return free_space;
+}
+
 
 void storage_clear_all(void)
 {
@@ -116,6 +138,7 @@ void storage_clear_all(void)
         return;
     }
 
+    spi_bus_mutex_lock();
     struct stat st;
     if (stat(FILE_PATH, &st) == 0) {
         unlink(FILE_PATH);
@@ -123,6 +146,7 @@ void storage_clear_all(void)
     } else {
         ESP_LOGW(TAG, "File does not exist");
     }
+    spi_bus_mutex_unlock();
 }
 
 bool storage_write_line(const char *text)
@@ -132,19 +156,23 @@ bool storage_write_line(const char *text)
         return false;
     }
 
-    if (storage_get_free_space() < 512) {
+    spi_bus_mutex_lock();
+    if (storage_get_free_space_unlocked() < 512) {
         ESP_LOGW(TAG, "Not enough space on SD card");
+        spi_bus_mutex_unlock();
         return false;
     }
 
     FILE *f = fopen(FILE_PATH, "a");
     if (!f) {
         ESP_LOGE(TAG, "Failed to open file");
+        spi_bus_mutex_unlock();
         return false;
     }
 
     int res = fprintf(f, "%s\n", text);
     fclose(f);
+    spi_bus_mutex_unlock();
 
     return (res >= 0);
 }
@@ -156,8 +184,12 @@ char *storage_read_all(void)
         return NULL;
     }
 
+    spi_bus_mutex_lock();
     FILE *f = fopen(FILE_PATH, "r");
-    if (!f) return NULL;
+    if (!f) {
+        spi_bus_mutex_unlock();
+        return NULL;
+    }
 
     fseek(f, 0, SEEK_END);
     long size = ftell(f);
@@ -165,18 +197,21 @@ char *storage_read_all(void)
 
     if (size <= 0) {
         fclose(f);
+        spi_bus_mutex_unlock();
         return NULL;
     }
 
     char *buf = malloc(size + 1);
     if (!buf) {
         fclose(f);
+        spi_bus_mutex_unlock();
         return NULL;
     }
 
     fread(buf, 1, size, f);
     buf[size] = '\0';
     fclose(f);
+    spi_bus_mutex_unlock();
 
     return buf;
 }
