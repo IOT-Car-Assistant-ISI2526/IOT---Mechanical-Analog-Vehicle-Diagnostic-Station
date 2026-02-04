@@ -1,12 +1,17 @@
 #include "max6675.h"
 #include "project_config.h"
 #include "spi_bus_mutex.h"
+#include "driver/gpio.h"
 static const char *TAG = "MAX6675";
 
 spi_device_handle_t max6675_handle;
 
 esp_err_t max6675_init()
 {
+    gpio_set_direction(CS_MAX6675_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(CS_MAX6675_PIN, 1);
+    gpio_set_pull_mode(CS_MAX6675_PIN, GPIO_PULLUP_ONLY);
+
     spi_device_interface_config_t devcfg = {
         .clock_speed_hz = MAX6675_FREQ_HZ,
         .mode = 0,
