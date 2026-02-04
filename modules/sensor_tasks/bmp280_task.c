@@ -1,6 +1,7 @@
 #include "bmp280_task.h"
 #include "ble_server.h"
 #include "esp_log.h"
+#include "utils.h"
 
 #define BMP280_TEMP_MIN 26.0f
 #define BMP280_TEMP_MAX 28.0f
@@ -23,6 +24,8 @@ void bmp280_task(void *arg)
                 snprintf(alert_msg, sizeof(alert_msg), "%.1f", temp);
                 ble_send_alert("BMP280", alert_msg);
             }
+
+            save_sensor_to_storage("BMP280", temp);
 
             vTaskDelay(BMP280_MEASUREMENT_INTERVAL_MS);
         }

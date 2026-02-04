@@ -178,14 +178,12 @@ void get_line_from_console(char *buffer, size_t max_len)
   }
 }
 
-#define MOUNT_POINT "/sdcard"
-
 void app_main(void)
 {
   i2c_master_bus_handle_t i2c_bus_0 = i2c_initialize_master(I2C_PORT_0_SDA_PIN, I2C_PORT_0_SCL_PIN);
   i2c_master_bus_handle_t i2c_bus_1 = i2c_initialize_master(I2C_PORT_1_SDA_PIN, I2C_PORT_1_SCL_PIN);
-  spi_initialize_master(SPI_MISO_PIN, SPI_MOSI_PIN, SPI_SCK_PIN);
-  spi_bus_mutex_init();
+  spi_initialize_master(SPI_MISO_PIN, SPI_MOSI_PIN, SPI_SCK_PIN, SPI3_HOST, 4096);
+  // spi_bus_mutex_init();
   ESP_LOGI("TIME", "BUILD_TIMESTAMP = %lu", (uint32_t)BUILD_TIMESTAMP);
 
   init_nvs();
