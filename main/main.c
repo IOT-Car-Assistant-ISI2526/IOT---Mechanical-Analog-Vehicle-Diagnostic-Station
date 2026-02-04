@@ -25,6 +25,7 @@
 #include "max6675.h"
 #include "adxl345.h"
 #include "hcsr04.h"
+#include "sd_card.h"
 
 #include "bmp280_task.h"
 #include "max6675_task.h"
@@ -84,7 +85,7 @@ i2c_master_bus_handle_t i2c_initialize_master(int sda, int scl)
   return bus_handle;
 }
 
-esp_err_t spi_initialize_master(int miso, int mosi, int sck)
+esp_err_t spi_initialize_master(int miso, int mosi, int sck, spi_host_device_t host, int size)
 {
   spi_bus_config_t buscfg = {
       .miso_io_num = miso,
@@ -92,10 +93,11 @@ esp_err_t spi_initialize_master(int miso, int mosi, int sck)
       .sclk_io_num = sck,
       .quadwp_io_num = -1,
       .quadhd_io_num = -1,
-      .max_transfer_sz = MAX_TRANSFER_SIZE,
+      .max_transfer_sz = size,
   };
 
-  ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
+  // Use lower DMA channel for SD card compatibility
+  ESP_ERROR_CHECK(spi_bus_initialize(host, &buscfg, SPI_DMA_CH1));
   return ESP_OK;
 }
 
@@ -125,15 +127,6 @@ void initialize_devices_test(i2c_master_bus_handle_t bus_handle_0, i2c_master_bu
     ESP_LOGI(TAG, "BMP280 initialized at primary address.");
   }
   adxl345_init(bus_handle_0);
-  max6675_init();
-  ESP_LOGI(TAG, "Devices initialized.");
-}
-
-void initialize_devices(i2c_master_bus_handle_t i2c_handle_0, i2c_master_bus_handle_t i2c_handle_1)
-{
-  veml7700_init(i2c_handle_1);
-  bmp280_init(i2c_handle_0);
-  adxl345_init(i2c_handle_0);
   max6675_init();
   ESP_LOGI(TAG, "Devices initialized.");
 }
@@ -222,17 +215,25 @@ void get_line_from_console(char *buffer, size_t max_len)
   }
 }
 
+#define MOUNT_POINT "/sdcard"
+
 void app_main(void)
 {
   i2c_master_bus_handle_t i2c_bus_0 = i2c_initialize_master(I2C_PORT_0_SDA_PIN, I2C_PORT_0_SCL_PIN); // Use your PIN numbers
   i2c_master_bus_handle_t i2c_bus_1 = i2c_initialize_master(I2C_PORT_1_SDA_PIN, I2C_PORT_1_SCL_PIN);
-  spi_initialize_master(SPI_PORT_0_MISO_PIN, SPI_PORT_0_MOSI_PIN, SPI_PORT_0_SCK_PIN); // Use your PIN numbers
+  spi_initialize_master(SPI_PORT_0_MISO_PIN, SPI_PORT_0_MOSI_PIN, SPI_PORT_0_SCK_PIN, SPI_PORT_0_HOST, MAX_TRANSFER_SIZE); // Use your PIN numbers
+  // spi_initialize_master(SD_CARD_SPI_MISO_PIN, SD_CARD_SPI_MOSI_PIN, SD_CARD_SPI_CLK_PIN, SD_CARD_SPI_HOST, 2048); // Use your PIN numbers
 
   if (i2c_bus_0 != NULL && i2c_bus_1 != NULL)
   {
     initialize_devices_test(i2c_bus_0, i2c_bus_1);
     configure_device_defaults();
   }
+
+  // sd_card_init(SD_CARD_SPI_HOST, SD_CARD_SPI_MOSI_PIN, SD_CARD_SPI_MISO_PIN, SD_CARD_SPI_CLK_PIN, SD_CARD_SPI_CS_PIN);
+
+  // Critical: wait for SD card to stabilize after mount
+  // vTaskDelay(pdMS_TO_TICKS(500));
 
   init_nvs();
 
