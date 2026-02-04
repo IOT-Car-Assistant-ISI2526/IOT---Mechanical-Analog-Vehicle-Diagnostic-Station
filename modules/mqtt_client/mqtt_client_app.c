@@ -21,6 +21,8 @@ static volatile bool mqtt_exit_requested = false;
 static const char *user = "user";
 static volatile bool mqtt_connected = false;
 
+
+
 static void get_mac_str(char *out, size_t len)
 {
     uint8_t mac[6];
@@ -123,7 +125,6 @@ static void publish_storage_via_mqtt(esp_mqtt_client_handle_t client,
             snprintf(payload, sizeof(payload),
                      "%s;%s", ts, val);
 
-            //send via MQTT
             esp_mqtt_client_publish( 
                 client,
                 topic,
@@ -170,9 +171,9 @@ static void mqtt_task(void *arg)
         vTaskDelay(pdMS_TO_TICKS(200));
     }
 
-    publish_hello(client, user, mac, "adxl");
-    publish_hello(client, user, mac, "max_normal");
-    publish_hello(client, user, mac, "max_profile");
+    publish_hello(client, user, mac, "ADXL345");
+    publish_hello(client, user, mac, "MAX6675_NORMAL");
+    publish_hello(client, user, mac, "MAX6675_PROFILE");
 
     publish_storage_via_mqtt(client, user, mac);
 

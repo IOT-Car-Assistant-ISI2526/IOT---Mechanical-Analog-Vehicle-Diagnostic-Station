@@ -1,4 +1,5 @@
 #include "adxl345_task.h"
+#include "utils.h"
 
 int adxl_counter = 0;
 
@@ -27,6 +28,7 @@ void adxl345_task(void *arg)
             // }
 
             vTaskDelay(FREQUENT_MEASUREMENT_INTERVAL_MS);
+            save_sensor_to_storage("ADXL345", acceleration);
         }
         else
         {

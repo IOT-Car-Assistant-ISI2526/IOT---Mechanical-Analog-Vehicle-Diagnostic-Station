@@ -78,9 +78,6 @@ void buzzer_init(gpio_num_t pin)
 
     buzzer_hw_off();
 
-    // if (s_buzzer_task == NULL) {
-    //     xTaskCreate(buzzer_task, "buzzer_task", 2048, NULL, 2, &s_buzzer_task);
-    // }
 }
 
 void buzzer_enable_park(bool enable)

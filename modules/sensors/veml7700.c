@@ -1,4 +1,3 @@
-/* veml7700.c */
 #include "veml7700.h"
 
 static const char *TAG = "VEML7700";
@@ -45,9 +44,6 @@ esp_err_t veml7700_delete()
 
 void veml7700_wake_up()
 {
-    // Command 0x00 (ALS_CONF)
-    // Data LSB: 0x00
-    // Data MSB: 0x00
     uint8_t write_buf[3] = {0x00, 0x00, 0x00};
 
     ESP_ERROR_CHECK(i2c_master_transmit(veml7700_handle, write_buf, sizeof(write_buf), -1));

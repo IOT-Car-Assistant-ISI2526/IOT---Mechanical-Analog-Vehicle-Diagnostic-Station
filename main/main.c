@@ -1,23 +1,22 @@
 #include "project_config.h"
-
+#include "utils.h"
+#include "sntp_client.h"
 #include <stdio.h>
 #include <string.h>
 #include "storage_manager.h"
 #include "button.h"
-#include "ble_server.h" // Bluetooth (Konfiguracja)
+#include "ble_server.h"
 
-#include "esp_log.h"   // logowanie wiadomosci
-#include "nvs_flash.h" // pamiec flash
+#include "esp_log.h"
+#include "nvs_flash.h"
 
-#include "driver/i2c_master.h" // Required for i2c_config_t, I2C_MODE_MASTER, i2c_driver_install
-#include "driver/gpio.h"       // Required for GPIO_PULLUP_ENABLE
-#include "driver/spi_master.h" // <--- Add this include at the top
+#include "driver/i2c_master.h"
+#include "driver/gpio.h"
+#include "driver/spi_master.h"
+#include "esp_mac.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-// #include "i2c_master_bus.h"
-// #include "spi_master_bus.h"
 
 #include "storage_manager.h"
 #include "bmp280.h"
@@ -25,7 +24,8 @@
 #include "max6675.h"
 #include "adxl345.h"
 #include "hcsr04.h"
-#include "sd_card.h"
+
+#include "spi_bus_mutex.h"
 
 #include "bmp280_task.h"
 #include "max6675_task.h"
@@ -39,11 +39,6 @@
 
 #include "buzzer.h"
 
-// stałe do zastąpienia funkcjami i zmiennymi
-#define BLE_PAIRED_SUCCESS true
-#define MEMORY_USAGE_PERCENT 75
-
-// Console tag
 static const char *TAG = "app_main";
 
 typedef struct
@@ -60,7 +55,7 @@ i2c_master_bus_handle_t i2c_initialize_master(int sda, int scl)
   i2c_master_bus_handle_t bus_handle = NULL;
 
   i2c_master_bus_config_t i2c_bus_config = {
-      .i2c_port = -1, // Use -1 for auto-assignment
+      .i2c_port = -1, // auto
       .sda_io_num = sda,
       .scl_io_num = scl,
       .clk_source = I2C_CLK_SRC_DEFAULT,
@@ -77,7 +72,7 @@ i2c_master_bus_handle_t i2c_initialize_master(int sda, int scl)
   {
     printf("ERROR: I2C Init Failed: %s\n", esp_err_to_name(err));
     fflush(stdout);
-    abort(); // Reset so we see the error
+    abort();
   }
 
   printf("I2C Init Success. Handle: %p\n", bus_handle);
@@ -96,8 +91,7 @@ esp_err_t spi_initialize_master(int miso, int mosi, int sck, spi_host_device_t h
       .max_transfer_sz = size,
   };
 
-  // Use lower DMA channel for SD card compatibility
-  ESP_ERROR_CHECK(spi_bus_initialize(host, &buscfg, SPI_DMA_CH1));
+  ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO));
   return ESP_OK;
 }
 
@@ -152,37 +146,6 @@ static void init_nvs(void)
   ESP_ERROR_CHECK(ret);
 }
 
-static sensor_data_t collect_sensor_data(float bmp, float lux, float eng, float dist, float accel)
-{
-  sensor_data_t data = {
-      .temperature = bmp,
-      .illuminance = lux,
-      .engine_temp = eng,
-      .distance = dist,
-      .acceleration = accel};
-  return data;
-}
-
-static void print_sensor_data(const sensor_data_t *data)
-{
-  printf("BMP280:    %.2f C\n", data->temperature);
-  printf("VEML7700:  %.2f Lux\n", data->illuminance);
-  printf("MAX6675:   %.2f C\n", data->engine_temp);
-  printf("HC-SR04:   %.2f cm\n", data->distance);
-  printf("ADXL345:   %.2f m/s2\n", data->acceleration);
-}
-
-static void format_sensor_line(char *out, size_t len, const sensor_data_t *d)
-{
-  snprintf(out, len,
-           "BMP280: %.2f C\n"
-           "VEML7700: %.2f Lux\n"
-           "MAX6675: %.2f C\n"
-           "HC-SR04: %.2f cm\n"
-           "ADXL345: %.2f m/s2\n",
-           d->temperature, d->illuminance, d->engine_temp, d->distance, d->acceleration);
-}
-
 void get_line_from_console(char *buffer, size_t max_len)
 {
   size_t index = 0;
@@ -219,10 +182,15 @@ void get_line_from_console(char *buffer, size_t max_len)
 
 void app_main(void)
 {
-  i2c_master_bus_handle_t i2c_bus_0 = i2c_initialize_master(I2C_PORT_0_SDA_PIN, I2C_PORT_0_SCL_PIN); // Use your PIN numbers
+  i2c_master_bus_handle_t i2c_bus_0 = i2c_initialize_master(I2C_PORT_0_SDA_PIN, I2C_PORT_0_SCL_PIN);
   i2c_master_bus_handle_t i2c_bus_1 = i2c_initialize_master(I2C_PORT_1_SDA_PIN, I2C_PORT_1_SCL_PIN);
-  spi_initialize_master(SPI_PORT_0_MISO_PIN, SPI_PORT_0_MOSI_PIN, SPI_PORT_0_SCK_PIN, SPI_PORT_0_HOST, MAX_TRANSFER_SIZE); // Use your PIN numbers
-  // spi_initialize_master(SD_CARD_SPI_MISO_PIN, SD_CARD_SPI_MOSI_PIN, SD_CARD_SPI_CLK_PIN, SD_CARD_SPI_HOST, 2048); // Use your PIN numbers
+  spi_initialize_master(SPI_MISO_PIN, SPI_MOSI_PIN, SPI_SCK_PIN);
+  spi_bus_mutex_init();
+  ESP_LOGI("TIME", "BUILD_TIMESTAMP = %lu", (uint32_t)BUILD_TIMESTAMP);
+
+  init_nvs();
+  sntp_client_init();
+  storage_init();
 
   if (i2c_bus_0 != NULL && i2c_bus_1 != NULL)
   {
@@ -230,14 +198,6 @@ void app_main(void)
     configure_device_defaults();
   }
 
-  // sd_card_init(SD_CARD_SPI_HOST, SD_CARD_SPI_MOSI_PIN, SD_CARD_SPI_MISO_PIN, SD_CARD_SPI_CLK_PIN, SD_CARD_SPI_CS_PIN);
-
-  // Critical: wait for SD card to stabilize after mount
-  // vTaskDelay(pdMS_TO_TICKS(500));
-
-  init_nvs();
-
-  storage_init();
   vTaskDelay(pdMS_TO_TICKS(STARTUP_DELAY_MS));
 
   float bmp280_temp = 0.0f, veml7700_illuminance = 0.0f, max6675_engine_temp = 0.0f, adxl345_acceleration = 0.0f, hcsr04_distance = 0.0f;
@@ -247,17 +207,16 @@ void app_main(void)
   max6675_start_task(&max6675_engine_temp);
   adxl345_start_task(&adxl345_acceleration);
   hcsr04_start_task(&hcsr04_distance);
+  max6675_start_profile_task(&max6675_engine_temp);
 
   mqtt_client_start();
 
-  buzzer_init(GPIO_NUM_18);
-  buzzer_beep(500);
+  buzzer_init(GPIO_NUM_14);
   button_init();
 
   int c;
   while ((c = fgetc(stdin)) != EOF)
   {
-    // Ignore input during sensor startup
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 
@@ -292,29 +251,12 @@ void app_main(void)
     }
     else if (strcmp(input_line, "measurement") == 0)
     {
-
-      bool valid = true;
-
-      char line[128];
-      snprintf(line, sizeof(line), "BMP280 LM: %.2f C\nVEML7700 LM: %.2f Lux\nMAX6675 LM: %.2f C\nHC-SR04 LM: %.2f cm\nADXL345 LM: %.2f m/s2\n",
-               bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
-      printf("BMP280 LM: %.2f C \nVEML7700 LM: %.2f Lux\nMAX6675 LM: %.2f C\nHC-SR04 LM: %.2f cm\nADXL345 LM: %.2f m/s2\n",
-             bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
-      if (storage_write_line(line))
-      {
-        printf(">> Zapisano.\n");
-      }
+      print_all_sensors(bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
+      save_all_sensors(bmp280_temp, veml7700_illuminance, max6675_engine_temp, hcsr04_distance, adxl345_acceleration);
     }
     else
     {
-      if (storage_write_line(input_line))
-      {
-        printf(">> Zapisano.\n");
-      }
-      else
-      {
-        printf(">> Błąd zapisu/brak miejsca!\n");
-      }
+      printf(">> Unknkown command: %s\n", input_line);
     }
   }
 }

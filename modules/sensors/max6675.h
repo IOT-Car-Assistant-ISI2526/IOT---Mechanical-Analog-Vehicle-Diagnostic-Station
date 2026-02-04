@@ -4,8 +4,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 
-#define MAX6675_CS_PIN 15
-#define MAX6675_FREQ_HZ 1000000 // 1 MHz
+#define MAX6675_FREQ_HZ 1000000
 
 /**
  * @brief Initialize the MAX6675 sensor

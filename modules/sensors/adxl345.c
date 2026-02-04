@@ -203,7 +203,7 @@ esp_err_t adxl345_enable_all_axis_activity_detection()
     {
         return err;
     }
-    act_inact_ctl |= 0x07; // Set bits for X, Y, Z axes
+    act_inact_ctl |= 0x07;
     return write_register_adxl345(ACT_INACT_CTL, act_inact_ctl);
 }
 
@@ -216,12 +216,18 @@ static void convert_raw_data_to_ms2(int16_t rx, int16_t ry, int16_t rz, float *x
 
 static float calculate_acceleration(float x, float y, float z)
 {
-    x = x - ADXL345_X_AXIS_CORRECTION;
-    y = y - ADXL345_Y_AXIS_CORRECTION;
-    z = z - ADXL345_EARTH_GRAVITY_MS2;
+    // x = x - ADXL345_X_AXIS_CORRECTION;
+    // y = y - ADXL345_Y_AXIS_CORRECTION;
+    // z = z - ADXL345_EARTH_GRAVITY_MS2;
 
-    float combined_acceleration = sqrtf(x * x + y * y + z * z);
-    return combined_acceleration;
+    // float combined_acceleration = sqrtf(x * x + y * y + z * z);
+    // return combined_acceleration;
+    const float xc = ADXL345_SX * (x - ADXL345_OX_MS2);
+    const float yc = ADXL345_SY * (y - ADXL345_OY_MS2);
+    const float zc = ADXL345_SZ * (z - ADXL345_OZ_MS2);
+
+    const float norm = sqrtf(xc * xc + yc * yc + zc * zc);
+    return norm;
 }
 
 float adxl345_read_data()
@@ -239,5 +245,5 @@ float adxl345_read_data()
     float x, y, z;
     convert_raw_data_to_ms2(rx, ry, rz, &x, &y, &z);
 
-    return calculate_acceleration(x, y, z);
+    return calculate_acceleration(x, y, z) - 8.9f;
 }

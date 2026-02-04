@@ -13,10 +13,8 @@
 #include "lwip/sys.h"
 #include "lwip/netdb.h" 
 
-// tag do logow
 static const char *TAG_HTTP = "http_client";
 
-// zapytanie http GET
 static const char *REQUEST = "GET " CONFIG_WEB_PATH " HTTP/1.1\r\n"
     "Host: " CONFIG_WEB_SERVER "\r\n"
     "User-Agent: esp-idf/1.0 esp32\r\n"
@@ -24,7 +22,6 @@ static const char *REQUEST = "GET " CONFIG_WEB_PATH " HTTP/1.1\r\n"
     "\r\n";
 
 
-// funkcja zadania http get
 static void http_get_task(void* arg)
 {
     const struct addrinfo hints = {
@@ -34,11 +31,9 @@ static void http_get_task(void* arg)
     struct addrinfo *res;
     struct in_addr *addr;
     int s, r;
-    char recv_buf[256]; // bufor odbiorczy
+    char recv_buf[256];
 
     while(1) {
-        // uzywamy funkcji publicznej z modulu wifi_station,
-        // sprawdzamy czy jestesmy polaczni z wifi
         if (!wifi_station_is_connected()) {
             ESP_LOGW(TAG_HTTP, "Oczekiwanie na połączenie Wi-Fi...");
             vTaskDelay(pdMS_TO_TICKS(5000));
@@ -47,7 +42,6 @@ static void http_get_task(void* arg)
 
         ESP_LOGI(TAG_HTTP, "Rozpoczynam pobieranie danych z %s...", CONFIG_WEB_SERVER);
 
-        // rozwiazywanie nazwy dns
         int err = getaddrinfo(CONFIG_WEB_SERVER, CONFIG_WEB_PORT, &hints, &res);
 
         if(err != 0 || res == NULL) {
@@ -59,7 +53,6 @@ static void http_get_task(void* arg)
         addr = &((struct sockaddr_in *)res->ai_addr)->sin_addr;
         ESP_LOGI(TAG_HTTP, "Znaleziono adres IP: %s", inet_ntoa(*addr));
 
-        // utworzenie gniazda
         s = socket(res->ai_family, res->ai_socktype, 0);
         if(s < 0) {
             ESP_LOGE(TAG_HTTP, "Nie można utworzyć gniazda. Błąd: %d", errno);
@@ -69,7 +62,6 @@ static void http_get_task(void* arg)
         }
         ESP_LOGI(TAG_HTTP, "Gniazdo utworzone.");
 
-        // polaczenie z serwerem
         if(connect(s, res->ai_addr, res->ai_addrlen) != 0) {
             ESP_LOGE(TAG_HTTP, "Nie można połączyć się z serwerem. Błąd: %d", errno);
             close(s);
@@ -80,7 +72,6 @@ static void http_get_task(void* arg)
         ESP_LOGI(TAG_HTTP, "Połączono z serwerem.");
         freeaddrinfo(res);
 
-        // wyslanie zapytania HTTP GET
         if (send(s, REQUEST, strlen(REQUEST), 0) < 0) {
             ESP_LOGE(TAG_HTTP, "Błąd podczas wysyłania zapytania. Błąd: %d", errno);
             close(s);
@@ -89,7 +80,6 @@ static void http_get_task(void* arg)
         }
         ESP_LOGI(TAG_HTTP, "Zapytanie HTTP GET wysłane.");
 
-        // odbieranie odpowiedzi
         ESP_LOGI(TAG_HTTP, "Odbieranie odpowiedzi...");
         printf("\n--- POCZĄTEK ODPOWIEDZI HTTP ---\n");
 
@@ -102,20 +92,18 @@ static void http_get_task(void* arg)
             continue;
         }
 
-        // flaga do wykrywania konca naglowka
         bool headers_done = false;
 
         do {
-            bzero(recv_buf, sizeof(recv_buf)); // czyszczenie bufora
-            r = recv(s, recv_buf, sizeof(recv_buf)-1, 0); // odbieranie danych
+            bzero(recv_buf, sizeof(recv_buf));
+            r = recv(s, recv_buf, sizeof(recv_buf)-1, 0);
             
             if (r > 0) {
-                // szukamy konca naglowkww HTTP
                 if (!headers_done) {
                     char* end_of_headers = strstr(recv_buf, "\r\n\r\n");
                     if (end_of_headers != NULL) {
                         headers_done = true;
-                        printf("%s", end_of_headers + 4); //end_of_headers + 4 to poczatek tresci po naglowkach (body)
+                        printf("%s", end_of_headers + 4);
                     }
                 } else {
                     printf("%.*s", r, recv_buf);
@@ -131,8 +119,6 @@ static void http_get_task(void* arg)
             ESP_LOGI(TAG_HTTP, "Odpowiedź odebrana pomyślnie.");
         }
 
-
-        // zamykanie gniazda
         close(s);
         ESP_LOGI(TAG_HTTP, "Gniazdo zamknięte.");
 

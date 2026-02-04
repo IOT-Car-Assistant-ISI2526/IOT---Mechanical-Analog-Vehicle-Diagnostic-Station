@@ -1,6 +1,7 @@
 ﻿idf_component_register(
     SRCS
         main.c
+        utils.c
     INCLUDE_DIRS
         "."
     REQUIRES
@@ -17,7 +18,12 @@
         log
         spiffs
         storage_manager
+        spi_master_bus
         ble_service
         button
         mqtt_client
+        sntp_client
 )
+if(DEFINED BUILD_TIMESTAMP)
+    add_compile_definitions(BUILD_TIMESTAMP=${BUILD_TIMESTAMP})
+endif()

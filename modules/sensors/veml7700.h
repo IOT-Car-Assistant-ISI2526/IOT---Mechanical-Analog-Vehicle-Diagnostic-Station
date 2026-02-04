@@ -3,15 +3,15 @@
 #include "driver/i2c_master.h"
 #include "esp_log.h"
 
-#define VEML7700_PORT I2C_NUM_1 /*!< I2C port number for VEML7700 sensor */
+#define VEML7700_PORT I2C_NUM_1
 #define VEML7700_SPEED_HZ 100000
-#define VEML7700_ADDR 0x10 // Fixed I2C address for VEML7700
-#define CMD_ALS_CONF 0x00  // Configuration Register
-#define CMD_ALS_DATA 0x04  // Ambient Light Data
+#define VEML7700_ADDR 0x10
+#define CMD_ALS_CONF 0x00
+#define CMD_ALS_DATA 0x04
 
-#define CONF_GAIN_1_8 (0x02 << 11) // Bits 11:12
-#define CONF_IT_100MS (0x00 << 6)  // Bits 6:9
-#define CONF_SHUTDOWN (0x01)       // Bit 0
+#define CONF_GAIN_1_8 (0x02 << 11)
+#define CONF_IT_100MS (0x00 << 6)
+#define CONF_SHUTDOWN (0x01)
 
 #define LUX_RESOLUTION 0.576f
 

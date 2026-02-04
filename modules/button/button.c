@@ -6,23 +6,28 @@
 #include "freertos/task.h"
 
 
-#define BUTTON_GPIO GPIO_NUM_0
-#define LONG_PRESS_MS 5000  // 5 sekund
+#define BUTTON_GPIO GPIO_NUM_4
+#define LONG_PRESS_MS 3000
 
-static bool button_down = false;
-static int64_t press_start = 0;
+static volatile bool button_down = false;
+static volatile int64_t press_start_ms = 0;
+static volatile bool long_press_released = false;
+
+static bool ble_started = false;
 
 static void IRAM_ATTR button_isr(void* arg)
 {
     int level = gpio_get_level(BUTTON_GPIO);
 
     if (level == 0) {
-        // wciśnięty
         button_down = true;
-        press_start = esp_timer_get_time() / 1000;
+        press_start_ms = esp_timer_get_time() / 1000;
     } else {
-        // puszczony
         button_down = false;
+        int64_t now_ms = esp_timer_get_time() / 1000;
+        if ((now_ms - press_start_ms) >= LONG_PRESS_MS) {
+            long_press_released = true;
+        }
     }
 }
 
@@ -31,14 +36,16 @@ static void button_task(void *arg)
 {
     while (1)
     {
-        if (button_down)
-        {
-            int64_t now = esp_timer_get_time() / 1000;
-            if (now - press_start >= LONG_PRESS_MS)
-            {
-                ESP_LOGI("BUTTON", "WYRYTO dłuuugie przytrzymanie → start BLE provisioning");
+        if (long_press_released) {
+            long_press_released = false;
+
+            if (!ble_started) {
+                ble_started = true;
+                ESP_LOGI("BUTTON", "Wykryto długie przytrzymanie (>=3s) i puszczenie → start BLE provisioning");
                 ble_server_init();
-                vTaskDelay(pdMS_TO_TICKS(1000)); // zapobiegamy wielokrotnemu wywołaniu
+            } else {
+                ESP_LOGI("BUTTON", "BLE provisioning już uruchomione — restartowanie BLE");
+                ble_server_restart();
             }
         }
         vTaskDelay(pdMS_TO_TICKS(50));

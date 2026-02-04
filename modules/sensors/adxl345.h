@@ -6,30 +6,47 @@
 
 // ADXL345 I2C Address (Assumes ALT ADDRESS pin is Grounded)
 #define ADXL345_PORT I2C_NUM_0
-#define ADXL345_SPEED_HZ 100000 // I2C Speed (100kHz)
+#define ADXL345_SPEED_HZ 100000
 #define ADXL345_ADDR 0x53
-// #define I2C_SCL_IO 22      // ESP32 GPIO for SCL
-// #define I2C_SDA_IO 21      // ESP32 GPIO for SDA
+
 
 // ADXL345 Registers
-#define REG_POWER_CTL 0x2D // Power Control Register
-#define BW_RATE 0x2C       // Data Rate
+#define REG_POWER_CTL 0x2D
+#define BW_RATE 0x2C
 
-#define REG_DATA_FORMAT 0x31 // Data Format Register
-#define REG_DATAX0 0x32      // Start of Data Registers (X-Low)
-#define OFFSET_X 0x1E        // X-Axis Offset
-#define OFFSET_Y 0x1F        // Y-Axis Offset
-#define OFFSET_Z 0x20        // Z-Axis Offset
+#define REG_DATA_FORMAT 0x31
+#define REG_DATAX0 0x32
+#define OFFSET_X 0x1E
+#define OFFSET_Y 0x1F
+#define OFFSET_Z 0x20
 
-#define THRESH_ACT 0x24    // Activity Threshold
-#define THRESH_INACT 0x25  // Inactivity Threshold
-#define TIME_INACT 0x26    // Inactivity Time
-#define ACT_INACT_CTL 0x27 // Activity/Inactivity Control
+#define THRESH_ACT 0x24
+#define THRESH_INACT 0x25
+#define TIME_INACT 0x26
+#define ACT_INACT_CTL 0x27
 
 #define ADXL345_LSB_TO_MS2 (0.004f * 9.80665f)
-#define ADXL345_X_AXIS_CORRECTION -0.039f
-#define ADXL345_Y_AXIS_CORRECTION -2.760f
-#define ADXL345_EARTH_GRAVITY_MS2 8.318f
+// #define ADXL345_X_AXIS_CORRECTION -0.039f
+// #define ADXL345_Y_AXIS_CORRECTION -2.760f
+// #define ADXL345_EARTH_GRAVITY_MS2 8.318f
+#define ADXL345_X_AXIS_CORRECTION 0.0f
+#define ADXL345_Y_AXIS_CORRECTION 0.0f
+#define ADXL345_EARTH_GRAVITY_MS2 0.0f
+
+// ===== Kalibracja 6-pozycyjna (offset + skala) policzona z Twoich logów =====
+// Model: x_c = Sx*(x - Ox), itd.  (x,y,z w m/s^2)
+#define ADXL345_G_MS2 9.81f
+
+// Offsety (m/s^2)
+#define ADXL345_OX_MS2  (0.32714286f)
+#define ADXL345_OY_MS2  (-0.30500000f)
+#define ADXL345_OZ_MS2  (-1.27500000f)
+
+// Skale (bezwymiarowe)
+#define ADXL345_SX       (0.96338384f)
+#define ADXL345_SY       (0.98345865f)
+#define ADXL345_SZ       (0.99040888f)
+
 
 esp_err_t adxl345_init(i2c_master_bus_handle_t bus_handle);
 esp_err_t adxl345_delete();
