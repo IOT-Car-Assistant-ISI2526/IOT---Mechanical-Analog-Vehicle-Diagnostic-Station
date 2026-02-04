@@ -33,6 +33,21 @@
 #define ADXL345_Y_AXIS_CORRECTION 0.0f
 #define ADXL345_EARTH_GRAVITY_MS2 0.0f
 
+// ===== Kalibracja 6-pozycyjna (offset + skala) policzona z Twoich logów =====
+// Model: x_c = Sx*(x - Ox), itd.  (x,y,z w m/s^2)
+#define ADXL345_G_MS2 9.81f
+
+// Offsety (m/s^2)
+#define ADXL345_OX_MS2  (0.32714286f)
+#define ADXL345_OY_MS2  (-0.30500000f)
+#define ADXL345_OZ_MS2  (-1.27500000f)
+
+// Skale (bezwymiarowe)
+#define ADXL345_SX       (0.96338384f)
+#define ADXL345_SY       (0.98345865f)
+#define ADXL345_SZ       (0.99040888f)
+
+
 esp_err_t adxl345_init(i2c_master_bus_handle_t bus_handle);
 esp_err_t adxl345_delete();
 esp_err_t adxl345_configure();
