@@ -1,7 +1,7 @@
 #ifndef WIFI_STATION_H
 #define WIFI_STATION_H
 
-#include <stdbool.h> 
+#include <stdbool.h>
 #include <stddef.h>
 
 /**
@@ -9,8 +9,10 @@
  * * Funkcja blokuje działanie do czasu uzyskania pierwszego połączenia z siecią Wi-Fi.
  * Automatycznie obsługuje ponowne łączenie w tle.
  */
-bool read_credentials_from_nvs(char* ssid, size_t ssid_size,char* pass, size_t pass_size);
+bool read_credentials_from_nvs(char *ssid, size_t ssid_size, char *pass, size_t pass_size);
 void wifi_station_init(void);
+
+void wifi_station_deinit(void);
 
 bool wifi_check_credentials(void);
 /**
